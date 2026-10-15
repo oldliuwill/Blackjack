@@ -13,13 +13,17 @@ export default defineConfig(
   },
   {
     // SPEC-001 §5: the rules engine is pure TypeScript and never touches the DOM.
+    // checkGlobalObject also catches globalThis.document etc.; globalThis.crypto stays allowed.
     files: ['src/engine/**/*.ts'],
     rules: {
       'no-restricted-globals': [
         'error',
-        ...['window', 'document', 'localStorage', 'sessionStorage', 'navigator', 'location', 'self'].map(
-          (name) => ({ name, message: 'src/engine must not use DOM globals (SPEC-001 §5).' }),
-        ),
+        {
+          globals: ['window', 'document', 'localStorage', 'sessionStorage', 'navigator', 'location', 'self'].map(
+            (name) => ({ name, message: 'src/engine must not use DOM globals (SPEC-001 §5).' }),
+          ),
+          checkGlobalObject: true,
+        },
       ],
     },
   },

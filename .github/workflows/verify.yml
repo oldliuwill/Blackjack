@@ -31,19 +31,25 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
-          files=$(git diff --name-only "origin/$BASE_REF...HEAD")
-          printf 'changed files:\n%s\n' "$files"
+          # NUL-separated raw paths: the default output quotes non-ASCII names, which would miss the patterns.
+          mapfile -d '' files < <(git diff --name-only -z "origin/$BASE_REF...HEAD")
           # L3 path list: the same list as AGENTS.md and CODEOWNERS (SPEC-001 §7).
           l3='^(src/engine/|\.github/|\.claude/|tests/support/)|^(package\.json|package-lock\.json|scripts/verify\.ps1|vite\.config\.ts|tsconfig\.json|eslint\.config\.mjs|playwright\.config\.ts)$'
           l1='^(docs/|\.ai/|public/assets/)|\.(md|css)$'
-          if echo "$files" | grep -Eq "$l3"; then
+          any_l3=false; all_l1=true
+          for f in "${files[@]}"; do
+            printf '  %s\n' "$f"
+            [[ $f =~ $l3 ]] && any_l3=true
+            [[ $f =~ $l1 ]] || all_l1=false
+          done
+          if $any_l3; then
             risk=L3
-          elif [ -n "$files" ] && ! echo "$files" | grep -Evq "$l1"; then
+          elif [ ${#files[@]} -gt 0 ] && $all_l1; then
             risk=L1
           else
             risk=L2
           fi
-          echo "risk=$risk"
+          echo "${#files[@]} changed file(s); risk=$risk"
           echo "risk=$risk" >> "$GITHUB_OUTPUT"
 
   contract:
@@ -62,11 +68,12 @@ jobs:
           RISK: ${{ needs.classify.outputs.risk }}
           HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'contract-change') }}
         run: |
-          files=$(git diff --name-only "origin/$BASE_REF...HEAD")
+          mapfile -d '' files < <(git diff --name-only -z "origin/$BASE_REF...HEAD")
+          touches() { local f; for f in "${files[@]}"; do [[ $f =~ $1 ]] && return 0; done; return 1; }
           status=0
 
           # Changing acceptance tests, the spec or task cards relative to main needs the contract-change label.
-          if echo "$files" | grep -Eq '^(tests/acceptance/|docs/specs/|\.ai/task-contracts/)'; then
+          if touches '^(tests/acceptance/|docs/specs/|\.ai/task-contracts/)'; then
             if [ "$HAS_LABEL" != true ]; then
               echo "::error::This PR changes tests/acceptance/, docs/specs/ or .ai/task-contracts/ and needs the contract-change label"
               status=1
@@ -98,7 +105,7 @@ jobs:
             else
               echo "Frozen $frozen: tests/acceptance/ unchanged"
             fi
-            if echo "$files" | grep -Eq '^tests/support/'; then
+            if touches '^tests/support/'; then
               echo "::notice::This L3 PR changes tests/support/; the reviewer must confirm no acceptance assertion is weakened"
             fi
           fi

@@ -4,15 +4,23 @@
 # -Base: compare against this commit instead of HEAD, so commits Codex made itself are checked too.
 param([string]$Base = 'HEAD')
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()   # read git's UTF-8 paths as UTF-8
 Set-Location (Split-Path -Parent $PSScriptRoot)
 
-$allowed = '^tests/acceptance/'
-$tracked = @(git diff --name-only --no-renames $Base)
-if ($LASTEXITCODE -ne 0) { Write-Host "cannot diff against '$Base'"; exit 1 }
-$untracked = @(git ls-files --others --exclude-standard)
-$changed = @($tracked + $untracked | Where-Object { $_ } | Sort-Object -Unique)
+# NUL-separated, unquoted paths, so non-ASCII or odd file names cannot dodge the prefix match.
+function Names([string[]]$GitArgs) {
+  $out = (& git -c core.quotePath=false @GitArgs) -join "`n"
+  if ($LASTEXITCODE -ne 0) { throw "git $($GitArgs -join ' ') failed (exit $LASTEXITCODE)" }
+  @($out -split "`0" | Where-Object { $_ })
+}
 
-$bad = @($changed | Where-Object { $_ -notmatch $allowed })
+$changed = @(
+  Names @('diff', '--name-only', '-z', '--no-renames', $Base)               # working tree vs Base
+  Names @('diff', '--name-only', '-z', '--no-renames', '--cached', $Base)   # index vs Base
+  Names @('ls-files', '--others', '--exclude-standard', '-z')               # untracked
+) | Sort-Object -Unique
+
+$bad = @($changed | Where-Object { $_ -notmatch '^tests/acceptance/' })
 if ($bad.Count -gt 0) {
   Write-Host "Acceptance changes may only touch tests/acceptance/. Not allowed:`n$($bad -join "`n")"
   exit 1

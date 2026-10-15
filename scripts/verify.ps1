@@ -34,25 +34,29 @@ function Step([string]$Name, [scriptblock]$Cmd) {
   $script:ran.Add($Name)
 }
 
-function Log([string]$Status) {
+function Log([string]$Status, [string]$Reason = '') {
   New-Item -ItemType Directory -Force -Path .ai/metrics | Out-Null
   $mode = if ($Quick) { 'quick' } else { 'full' }
-  "{0}`t{1}`t{2}`t{3}`t{4}`t{5}s`t{6}" -f (Get-Date -Format s), $Task, $Risk, $mode, $Status, [int]$sw.Elapsed.TotalSeconds, ($ran -join '+') |
+  $commit = (git rev-parse --short HEAD 2>$null)
+  if (git status --porcelain 2>$null) { $commit += '+dirty' }
+  "{0}`t{1}`t{2}`t{3}`t{4}`t{5}`t{6}s`t{7}`t{8}" -f (Get-Date -Format s), $Task, $commit, $Risk, $mode, $Status, [int]$sw.Elapsed.TotalSeconds, ($ran -join '+'), $Reason |
     Add-Content -Path .ai/metrics/verify.log
 }
 
 try {
   # npx --no: use the locally installed tool, never download one on the fly.
-  Step 'typecheck' { npx --no tsc --noEmit }
-  Step 'lint' { npx --no eslint . --max-warnings 0 }
-  Step 'unit' { npx --no vitest run tests/unit }
-  if (-not $Quick) {
-    Step 'build' { npx --no vite build }
-    Step 'e2e' { npx --no playwright test }
+  # The `--` is required: without it npm takes camelCase flags such as --noEmit as its own and drops them.
+  Step 'typecheck' { npx --no -- tsc --noEmit }
+  Step 'lint' { npx --no -- eslint . --max-warnings 0 }
+  Step 'unit' { npx --no -- vitest run tests/unit }
+  # -Quick and L1 stop here (SPEC-001 §6.2).
+  if (-not $Quick -and $Risk -ne 'L1') {
+    Step 'build' { npx --no -- vite build }
+    Step 'e2e' { npx --no -- playwright test }
     if ($Risk -eq 'L3') {
       # "Must not be missing or empty" [D15]: no *.test.ts means the step does not run.
       if ((Test-Path tests/acceptance) -and (Get-ChildItem tests/acceptance -Recurse -Filter *.test.ts)) {
-        Step 'acceptance' { npx --no vitest run tests/acceptance }
+        Step 'acceptance' { npx --no -- vitest run tests/acceptance }
       }
       else {
         Write-Host 'acceptance: tests/acceptance is missing or has no *.test.ts'
@@ -72,7 +76,7 @@ try {
   exit 0
 }
 catch {
-  Log 'FAIL'
+  Log 'FAIL' $_.Exception.Message
   Write-Host $_.Exception.Message
   exit 1
 }

@@ -24,3 +24,6 @@ Thumbs.db
 # Secrets
 .env
 .env.*
+
+# Review inputs regenerated from the base/head SHAs recorded in each review file
+.ai/reviews/*.diff
