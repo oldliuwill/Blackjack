@@ -1,6 +1,6 @@
 # SPEC-001：Blackjack 網頁遊戲 MVP
 
-版本：草稿 3 · 2026-10-15 · 作者：協調者（Claude Opus）· 狀態：已過 Codex 審查兩輪；待人確認 §10 第 1–3 點
+版本：1.0 · 2026-10-15 · 作者：協調者（Claude Opus）· 狀態：定稿（Codex 審查兩輪；§10 第 1–3 點已由人確認）
 
 依據：
 
@@ -300,8 +300,8 @@ Node 24 LTS（`engines.node: ">=24 <25"`）、npm。`package.json` 一律寫精�
 | `vitest` | 5.0.4 | 已核准 [D13] |
 | `eslint` | 10.12.0 | 已核准 [D13] |
 | `@playwright/test` | 1.64.1 | 已核准 [D13] |
-| `@eslint/js` | 10.0.1 | **待人核准**：ESLint 官方 flat config 需要 |
-| `typescript-eslint` | 8.71.2 | **待人核准**：要 lint TypeScript 就需要 |
+| `@eslint/js` | 10.0.1 | 已核准 [D35]：ESLint 官方 flat config 需要 |
+| `typescript-eslint` | 8.71.2 | 已核准 [D35]：要 lint TypeScript 就需要 |
 
 ### 6.2 `scripts/verify.ps1` [D15]
 
@@ -350,7 +350,7 @@ baseline A14 把契約檢查放在 classify 內，verify 又依賴 classify；�
 
 | 等級 | 路徑 |
 | --- | --- |
-| L3 | `src/engine/**`、`package.json`、`package-lock.json`、`.github/**`、`scripts/verify.ps1`、`.claude/**`；**D34（待人確認）**：再加上會改變驗收含義或關卡範圍的檔案：`tests/support/**`、`vite.config.ts`、`tsconfig.json`、`eslint.config.mjs`、`playwright.config.ts` |
+| L3 | `src/engine/**`、`package.json`、`package-lock.json`、`.github/**`、`scripts/verify.ps1`、`.claude/**`；以及會改變驗收含義或關卡範圍的檔案 [D34]：`tests/support/**`、`vite.config.ts`、`tsconfig.json`、`eslint.config.mjs`、`playwright.config.ts` |
 | L2 | `src/ui/**`、`src/main.ts`、`index.html`，以及其他未列出的檔案 |
 | L1 | 文件（`docs/**`、`.ai/**`、`*.md`）、`*.css`、`public/assets/**` |
 
@@ -426,7 +426,7 @@ TASK-001 會觸及 L3 路徑，但當時還沒有驗收測試，所以它的 PR 
 
 ### 9.2 TASK-002：牌靴與計點
 
-預期值來源：G1–G9 的定義，由協調者手算。**待人確認**。
+預期值來源：G1–G9 的定義，由協調者手算，Codex 獨立手算一致。人工確認：Will／2026-10-15 [D36]。
 
 | # | 案例 | 預期 | 規則 |
 | --- | --- | --- | --- |
@@ -452,7 +452,7 @@ C4 的 `handValue`：
 
 ### 9.3 TASK-003：牌局
 
-**S1–S16**：規則研究「驗收情境」表的 #1–#16，牌序、動作、總押注、總返還、淨輸贏以原表為準。預期值來源：人工確認 Will／2026-10-15 [D29]。本 SPEC 另加以下斷言（來源：所列規則）：
+**S1–S16**：規則研究「驗收情境」表的 #1–#16，牌序、動作、總押注、總返還、淨輸贏以原表為準。預期值來源：人工確認 Will／2026-10-15 [D29]。本 SPEC 另加以下斷言（來源：所列規則；人工確認：Will／2026-10-15 [D36]）：
 
 | 情境 | 追加斷言 | 規則 |
 | --- | --- | --- |
@@ -466,7 +466,7 @@ C4 的 `handValue`：
 | S14 | playerTurn 中 `act('surrender')`、`act('insurance')`（以型別斷言傳入）丟 `ILLEGAL_ACTION`，狀態不變 | G25、§4.4 |
 | S16 | 第 1 手拿到第二張 8 後，可用動作為 hit、stand、double；`act('split')` 丟 `ILLEGAL_ACTION`，狀態與呼叫前深度相等 | G25、§4.4 |
 
-**B1–B18**：新增的邊界案例。預期值來源：所列規則，由協調者手算。**待人確認**。牌序寫法同規則研究：分號前是起手四張，分號後依序抽出。
+**B1–B18**：新增的邊界案例。預期值來源：所列規則，由協調者手算，Codex 獨立手算一致。人工確認：Will／2026-10-15 [D36]。牌序寫法同規則研究：分號前是起手四張，分號後依序抽出。
 
 | # | 牌序與設定 | 動作 | 預期 | 規則 |
 | --- | --- | --- | --- | --- |
@@ -491,9 +491,9 @@ C4 的 `handValue`：
 
 ## 10. 未決事項與假設
 
-1. **待人核准**：`@eslint/js` 10.0.1、`typescript-eslint` 8.71.2（§6.1）。
-2. **待人確認**：§9.2 的 C1–C5、§9.3 的 B1–B18 與追加斷言的預期值。確認後才能交給 Codex 寫斷言。
-3. **待人確認**：D34，把 `tests/support/**` 與四個關卡設定檔列為 L3（§7）。
+1. **已核准**（Will／2026-10-15）：`@eslint/js` 10.0.1、`typescript-eslint` 8.71.2（§6.1）[D35]。
+2. **已確認**（Will／2026-10-15）：§9.2 的 C1–C5、§9.3 的 B1–B18 與追加斷言的預期值 [D36]。
+3. **已確認**（Will／2026-10-15）：D34，把 `tests/support/**` 與四個關卡設定檔列為 L3（§7）。
 4. **假設**：Pages 網址是 `https://oldliuwill.github.io/Blackjack/`，Vite `base` 為 `/Blackjack/`。TASK-001 先設好 `base`，讓冒煙測試與部署走同一個路徑。
 5. **假設**：Playwright 1.64.1 能在本機 Windows 10 執行（D22）。TASK-001 實測後記錄結果；不行就改用 §6.2 的 `VERIFY_E2E=ci-only` 契約。
 6. **假設**：七個套件版本各自可追溯到工具鏈研究，但整組能一起安裝與通過驗證尚未證實，由 TASK-001 的 AC1、AC2 關閉。
