@@ -32,7 +32,10 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           # NUL-separated raw paths: the default output quotes non-ASCII names, which would miss the patterns.
-          mapfile -d '' files < <(git diff --name-only -z "origin/$BASE_REF...HEAD")
+          # Written to a file first so a git failure stops the job (-e) instead of reading as "no changes".
+          list=$(mktemp)
+          git diff --name-only -z "origin/$BASE_REF...HEAD" > "$list"
+          mapfile -d '' files < "$list"
           # L3 path list: the same list as AGENTS.md and CODEOWNERS (SPEC-001 §7).
           l3='^(src/engine/|\.github/|\.claude/|tests/support/)|^(package\.json|package-lock\.json|scripts/verify\.ps1|vite\.config\.ts|tsconfig\.json|eslint\.config\.mjs|playwright\.config\.ts)$'
           l1='^(docs/|\.ai/|public/assets/)|\.(md|css)$'
@@ -68,7 +71,9 @@ jobs:
           RISK: ${{ needs.classify.outputs.risk }}
           HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'contract-change') }}
         run: |
-          mapfile -d '' files < <(git diff --name-only -z "origin/$BASE_REF...HEAD")
+          list=$(mktemp)
+          git diff --name-only -z "origin/$BASE_REF...HEAD" > "$list"   # fails the job on git errors
+          mapfile -d '' files < "$list"
           touches() { local f; for f in "${files[@]}"; do [[ $f =~ $1 ]] && return 0; done; return 1; }
           status=0
 
