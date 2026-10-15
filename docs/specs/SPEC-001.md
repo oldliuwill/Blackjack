@@ -1,6 +1,6 @@
 # SPEC-001：Blackjack 網頁遊戲 MVP
 
-版本：草稿 2 · 2026-10-15 · 作者：協調者（Claude Opus）· 狀態：已過 Codex 審查一輪；待人確認 §10 第 1–3 點
+版本：草稿 3 · 2026-10-15 · 作者：協調者（Claude Opus）· 狀態：已過 Codex 審查兩輪；待人確認 §10 第 1–3 點
 
 依據：
 
@@ -383,7 +383,7 @@ L2 卡：Sonnet 實作 → verify → Opus 唯讀子代理審（TASK-004 另交 
 
 | 卡 | 風險 | 實作 | 內容 | 驗收 | 依賴 |
 | --- | --- | --- | --- | --- | --- |
-| TASK-001 | L3 | 協調者 [D32] | Vite 骨架、相依、`verify.ps1`、CI、CODEOWNERS、AGENTS.md、`.claude/settings.json`、Stop hook | 卡上 AC1–AC9 | plan PR |
+| TASK-001 | L3 | 協調者 [D32] | Vite 骨架、相依、`verify.ps1`、CI、CODEOWNERS、AGENTS.md、`.claude/settings.json`、Stop hook | 卡上 AC1–AC10 | plan PR |
 | TASK-002 | L3 | Opus | §4.1–4.3、§4.5：型別、常數、錯誤、牌靴、計點 | §9.2 C1–C5 | 001 |
 | TASK-003 | L3 | Opus | §4.4：牌局流程、動作、莊家、結算 | §9.3 S1–S16、B1–B18 | 002 |
 | TASK-004 | L2 | Sonnet | §3.8 介面與 localStorage；完整冒煙測試 | 卡上案例 | 003 |
@@ -486,7 +486,7 @@ C4 的 `handValue`：
 | B14 | `10, 9, 7, 8` | `deal(100)` → 以型別斷言修改 `deal()` 與 `state()` 回傳值：`bankroll`、`hands` 陣列、`hands[0].cards` 陣列、`hands[0].cards[0].rank` | 再次呼叫 `state()` 的結果與修改前相同 | §4.4 快照獨立 |
 | B15 | — | `createGame({ bankroll })`，bankroll 為 −1、10.5、NaN；另一次為 0 | 前三者丟 `INVALID_BANKROLL`；0 可建立，phase 為 betting | §4.4 |
 | B16 | `8, 6, 8, 10; 10, 5, 10, K` | `deal(100)` → `split` → `hit` → `stand` | H1 [8,10,5] 23 爆牌；H2 [8,10] 18；H2 沒爆牌，所以莊家 [6,10] 補 K 成 26 爆牌；H1 仍是 `lose`（玩家先爆牌即輸），H2 `win` 返還 200；總押注 200、總返還 200、淨 0 | G20、G27 |
-| B17 | `5, 7, 5, 9; 6, 10, 5, K, 2` | `deal(100)` → `split` → `double` → `double` | H1 [5,6,10] 21、注額 200；H2 [5,5,K] 20、注額 200；兩次加倍前資金分別為 800、700，最後 600；莊家 [7,9,2] 18；兩手 `win` 各返還 400；總押注 400、總返還 800、淨 +400；最終資金 1,400 | G13、G24、G25 |
+| B17 | `5, 7, 5, 9; 6, 10, 5, K, 2` | `deal(100)` → `split` → `double` → `double` | H1 [5,6,10] 21、注額 200；H2 [5,5,K] 20、注額 200；兩次加倍前資金分別為 800、700，第二次加倍扣注後、結算前為 600（不可觀察）；第二次 `double` 在同一次呼叫內結算，回傳的資金為 1,400；莊家 [7,9,2] 18；兩手 `win` 各返還 400；總押注 400、總返還 800、淨 +400；最終資金 1,400 | G13、G24、G25 |
 | B18 | `K, 10, K, 6; A, 7, 5` | `deal(100)` → `split` → `stand` | 明牌 10 先 peek，暗牌 6 不是 Blackjack；H1 [K,A] 21 自動停牌；H2 [K,7] 17；莊家 [10,6,5] 21；H1 `push` 返還 100（分牌 21 不是 Blackjack）；H2 `lose`；總押注 200、總返還 100、淨 −100 | G9、G16、G19、G27 |
 
 ## 10. 未決事項與假設
@@ -506,3 +506,4 @@ C4 的 `handValue`：
 | --- | --- | --- | --- |
 | 1 | Codex（`$noWeb`、effort medium、唯讀） | 草稿 1（commit `fb53683`） | BLOCKING 5、NON-BLOCKING 7、假設 3；全部有效，已修正為草稿 2。手算核對 S1–S16、C1–C5 與 B2–B9、B11–B14，預期值正確 |
 | 1 | Gemini Flash（agy） | 同上 | 未執行：agy 連 `googleapis.com` 的登入檢查被重設連線，兩次都在 5 秒內失敗 |
+| 2 | Codex（同上，只給 diff 與上輪 finding） | 草稿 2（commit `ca628eb`） | 上輪 12 項：11 項已解決，D34 待人確認；手算 B1、B10、B12、B14–B18 全部一致；新 NON-BLOCKING 2 項（B17 措辭、§8.2 的 AC 範圍），已修正為草稿 3 |
