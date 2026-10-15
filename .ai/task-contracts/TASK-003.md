@@ -1,7 +1,7 @@
 # TASK-003：牌局流程、動作與結算
 
 Risk：L3（路徑：`src/engine/**`；公開 API、數值計算）
-Spec：docs/specs/SPEC-001.md@（審查定稿後填）§3.3–§3.7、§4.4、§4.6
+Spec：docs/specs/SPEC-001.md@4d61f23fe417427de4d3f4b6140f0fe6d3462506 §3.3–§3.7、§4.4、§4.6
 
 Goal：照 SPEC §4.4 實作 `createGame` 與 `Game`：下注、發牌、peek、玩家動作、莊家補牌、結算、重洗與重設資金，並從 `src/engine/index.ts` 匯出。
 

@@ -1,7 +1,7 @@
 # TASK-001：專案骨架與治理檔（bootstrap）
 
 Risk：L3（路徑：`package.json`、`package-lock.json`、`.github/**`、`.claude/**`、`scripts/verify.ps1`）
-Spec：docs/specs/SPEC-001.md@（審查定稿後填）§5–§8
+Spec：docs/specs/SPEC-001.md@4d61f23fe417427de4d3f4b6140f0fe6d3462506 §5–§8
 撰寫：協調者，在 `D:\ai\projects\Blackjack-wt\task-001`（分支 `task/001`）。不開實作者 session，理由見 SPEC §8.3 與 D32
 
 Goal：建立 Vite + TypeScript 骨架、驗證腳本、CI、CODEOWNERS 與 Claude 權限設定，讓之後每張卡都能用同一支 `verify.ps1` 在本機與 CI 驗證。

@@ -1,7 +1,7 @@
 # TASK-004：介面與資金保存
 
 Risk：L2（路徑：`src/ui/**`、`src/main.ts`、`index.html`；`src/style.css` 為 L1。不改公開 API）
-Spec：docs/specs/SPEC-001.md@（審查定稿後填）§3.8、§4、§5
+Spec：docs/specs/SPEC-001.md@4d61f23fe417427de4d3f4b6140f0fe6d3462506 §3.8、§4、§5
 實作：Sonnet，effort 中
 
 Goal：照 SPEC §3.8 做出可玩的英文介面：用籌碼下注、發牌、動作按鈕與鍵盤快捷鍵、結果顯示、資金存進 localStorage，桌機與手機直式都能操作。

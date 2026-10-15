@@ -1,7 +1,7 @@
 # TASK-006：GitHub Pages 部署
 
 Risk：L3（路徑：`.github/**`）
-Spec：docs/specs/SPEC-001.md@（審查定稿後填）§6、§8.3、§10 第 3 點
+Spec：docs/specs/SPEC-001.md@4d61f23fe417427de4d3f4b6140f0fe6d3462506 §6、§8.3、§10 第 3 點
 實作：Opus
 
 Goal：`main` 有新 commit 時建置並部署到 GitHub Pages；部署 job 需要人在 `github-pages` environment 核准。[D19]

@@ -1,7 +1,7 @@
 # TASK-002：牌、牌靴與計點
 
 Risk：L3（路徑：`src/engine/**`；公開 API）
-Spec：docs/specs/SPEC-001.md@（審查定稿後填）§3.1–§3.2、§4.1–§4.3、§4.5、§5
+Spec：docs/specs/SPEC-001.md@4d61f23fe417427de4d3f4b6140f0fe6d3462506 §3.1–§3.2、§4.1–§4.3、§4.5、§5
 
 Goal：照 SPEC §4.1–§4.3、§4.5 實作型別、常數、錯誤類別、`Shoe`、`cryptoRandom`、`handValue`、`isBlackjack`，並從 `src/engine/index.ts` 匯出。
 
