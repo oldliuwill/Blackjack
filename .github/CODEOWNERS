@@ -1,0 +1,21 @@
+# SPEC-001 §7. L3 paths: the same list as AGENTS.md and the CI classify job.
+/src/engine/              @oldliuwill
+/package.json             @oldliuwill
+/package-lock.json        @oldliuwill
+/.github/                 @oldliuwill
+/.claude/                 @oldliuwill
+/tests/support/           @oldliuwill
+/vite.config.ts           @oldliuwill
+/tsconfig.json            @oldliuwill
+/eslint.config.mjs        @oldliuwill
+/playwright.config.ts     @oldliuwill
+
+# The gates themselves: agents cannot change their own rules.
+/scripts/                 @oldliuwill
+/AGENTS.md                @oldliuwill
+/CLAUDE.md                @oldliuwill
+
+# Frozen acceptance tests, the spec and task cards.
+/tests/acceptance/        @oldliuwill
+/docs/specs/              @oldliuwill
+/.ai/task-contracts/      @oldliuwill
