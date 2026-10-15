@@ -1,0 +1,147 @@
+# SPEC-001 §6.3 (baseline A14, with the contract checks split out of classify so a contract failure
+# does not skip verify). No LLM runs here and no secrets are used.
+name: verify
+
+on:
+  pull_request:
+    branches: [main]
+    # Adding or removing a label (contract-change) re-runs the checks.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      risk: ${{ steps.r.outputs.risk }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: r
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # NUL-separated raw paths: the default output quotes non-ASCII names, which would miss the patterns.
+          # Written to a file first so a git failure stops the job (-e) instead of reading as "no changes".
+          list=$(mktemp)
+          git diff --name-only -z "origin/$BASE_REF...HEAD" > "$list"
+          mapfile -d '' files < "$list"
+          # L3 path list: the same list as AGENTS.md and CODEOWNERS (SPEC-001 §7).
+          l3='^(src/engine/|\.github/|\.claude/|tests/support/)|^(package\.json|package-lock\.json|scripts/verify\.ps1|vite\.config\.ts|tsconfig\.json|eslint\.config\.mjs|playwright\.config\.ts)$'
+          l1='^(docs/|\.ai/|public/assets/)|\.(md|css)$'
+          any_l3=false; all_l1=true
+          for f in "${files[@]}"; do
+            printf '  %s\n' "$f"
+            [[ $f =~ $l3 ]] && any_l3=true
+            [[ $f =~ $l1 ]] || all_l1=false
+          done
+          if $any_l3; then
+            risk=L3
+          elif [ ${#files[@]} -gt 0 ] && $all_l1; then
+            risk=L1
+          else
+            risk=L2
+          fi
+          echo "${#files[@]} changed file(s); risk=$risk"
+          echo "risk=$risk" >> "$GITHUB_OUTPUT"
+
+  contract:
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          BRANCH: ${{ github.head_ref }}
+          RISK: ${{ needs.classify.outputs.risk }}
+          HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'contract-change') }}
+        run: |
+          list=$(mktemp)
+          git diff --name-only -z "origin/$BASE_REF...HEAD" > "$list"   # fails the job on git errors
+          mapfile -d '' files < "$list"
+          touches() { local f; for f in "${files[@]}"; do [[ $f =~ $1 ]] && return 0; done; return 1; }
+          status=0
+
+          # Changing acceptance tests, the spec or task cards relative to main needs the contract-change label.
+          if touches '^(tests/acceptance/|docs/specs/|\.ai/task-contracts/)'; then
+            if [ "$HAS_LABEL" != true ]; then
+              echo "::error::This PR changes tests/acceptance/, docs/specs/ or .ai/task-contracts/ and needs the contract-change label"
+              status=1
+            fi
+          fi
+
+          # L3: the card's Frozen SHA must be in history and tests/acceptance/ unchanged since it.
+          # The label does not bypass this check: to change frozen tests, update Frozen on the card too.
+          if [ "$RISK" = L3 ]; then
+            num=$(echo "$BRANCH" | sed -nE 's#^task/([0-9]+)$#\1#p')
+            card=".ai/task-contracts/TASK-${num}.md"
+            frozen=""
+            if [ -n "$num" ] && [ -f "$card" ]; then
+              frozen=$(sed -nE 's/^Frozen：([0-9a-f]{7,40})([^0-9a-f].*)?$/\1/p' "$card" | head -1)
+            fi
+            if [ -z "$num" ] || [ ! -f "$card" ]; then
+              echo "::error::L3 PRs must come from a task/NNN branch with .ai/task-contracts/TASK-NNN.md (branch: $BRANCH)"
+              status=1
+            elif [ -z "$frozen" ]; then
+              echo "::error::L3 needs a Frozen SHA on $card (line 'Frozen：<SHA>')"
+              status=1
+            elif ! git merge-base --is-ancestor "$frozen" HEAD 2>/dev/null; then
+              echo "::error::Frozen SHA $frozen from $card is not in this PR's history"
+              status=1
+            elif ! git diff --quiet "$frozen" HEAD -- tests/acceptance; then
+              echo "::error::tests/acceptance/ changed after Frozen SHA $frozen"
+              git diff --stat "$frozen" HEAD -- tests/acceptance
+              status=1
+            else
+              echo "Frozen $frozen: tests/acceptance/ unchanged"
+            fi
+            if touches '^tests/support/'; then
+              echo "::notice::This L3 PR changes tests/support/; the reviewer must confirm no acceptance assertion is weakened"
+            fi
+          fi
+          exit $status
+
+  verify:
+    # Depends on classify only, so a contract failure does not skip verification.
+    needs: classify
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium
+      - shell: pwsh
+        env:
+          RISK: ${{ needs.classify.outputs.risk }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: ./scripts/verify.ps1 -Risk $env:RISK -Task "PR-$env:PR_NUMBER"
+
+  dependency-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@v5.0.0

@@ -1,0 +1,29 @@
+node_modules/
+dist/
+*.local
+
+# verify.ps1 log (per machine; read when filling the card's measurements)
+.ai/metrics/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+
+# Claude session traces (summaries are pasted into handoffs, raw logs stay local)
+.ai/trace/
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Secrets
+.env
+.env.*
+
+# Review inputs regenerated from the base/head SHAs recorded in each review file
+.ai/reviews/*.diff

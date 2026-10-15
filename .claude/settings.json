@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(/tests/acceptance/**)",
+      "Edit(/AGENTS.md)",
+      "Edit(/CLAUDE.md)",
+      "Edit(/.claude/**)",
+      "Edit(/.github/**)",
+      "Edit(/scripts/**)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Bash(git push *)",
+      "Bash(git commit --no-verify *)",
+      "PowerShell(git push *)",
+      "PowerShell(git commit --no-verify *)",
+      "WebSearch",
+      "WebFetch",
+      "mcp__claude-in-chrome",
+      "mcp__Claude_Browser"
+    ],
+    "disableBypassPermissionsMode": "disable"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PROJECT_DIR}/.claude/hooks/verify-gate.ps1"],
+            "timeout": 900
+          }
+        ]
+      }
+    ]
+  }
+}

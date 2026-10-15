@@ -1,0 +1,8 @@
+# Fixed line endings: core.autocrlf on Windows would otherwise turn LF into CRLF,
+# so hooks, diff checks and CI could read different bytes than the working tree.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
