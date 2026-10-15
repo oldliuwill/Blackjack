@@ -13,6 +13,7 @@ Non-goals：
 
 Allowed Files（bootstrap 為設定與範本改寫，超過 10 個檔案的提示上限；`package-lock.json` 不計入行數）：
 - `package.json`、`package-lock.json`、`tsconfig.json`、`vite.config.ts`（含 Vitest 設定）、`eslint.config.mjs`、`playwright.config.ts`、`index.html`、`.gitignore`
+- `.gitattributes`（固定換行：本機 `core.autocrlf` 會把 LF 轉成 CRLF）
 - `src/main.ts`、`src/style.css`
 - `tests/unit/bootstrap.test.ts`（佔位，讓 unit 關卡有東西跑；TASK-002 刪除）
 - `tests/e2e/smoke.spec.ts`（頁面載入、標題為 Blackjack；完整流程由 TASK-004 補）
@@ -44,9 +45,10 @@ Acceptance：
 | AC6 | `vitest list`、`playwright test --list` | Vitest 不收 `tests/e2e/`，Playwright 不收 `tests/unit/` | 工具鏈研究「需本機驗證」第 4 點 |
 | AC7 | 在 `task/*` 分支製造讓 `-Quick` 失敗的變更，把 Stop 事件 JSON 餵給 `verify-gate.ps1`；再在非 `task/*` 分支餵一次 | 前者 exit 2，後者 exit 0 | baseline A9 |
 | AC8 | `check-acceptance-diff.ps1`：只改 `tests/acceptance/`；另一次改到其他檔案 | 前者 exit 0，後者 exit 1 | baseline A17 |
-| AC9 | 推上 PR | CI 出現 classify、verify、dependency-review 三個 job；verify 的 L2 步驟全部通過。classify 判為 L3 並因缺 `Frozen` 失敗，屬預期 | SPEC §8.3 |
+| AC9 | 推上 PR | 與 SPEC §8.3 列的預期一致：classify 輸出 L3；contract 因缺 `Frozen` 失敗；verify 照樣執行，五個 L2 步驟通過，只因 `required steps not run: acceptance` 失敗；dependency-review 通過 | SPEC §6.3、§8.3 |
+| AC10 | 在 PR 上加、移除 `contract-change` 標籤 | CI 重跑 | SPEC §6.3 |
 
-AC3、AC5、AC7、AC8 為手動檢查，結果寫在 PR 描述。Playwright 在本機 Windows 10 能否執行，依 D22 記錄。
+AC3、AC5、AC7、AC8 為手動檢查，結果寫在 PR 描述。Playwright 在本機 Windows 10 能否執行，依 D22 記錄；不行就實作 SPEC §6.2 的 `VERIFY_E2E=ci-only` 契約，並請人設定環境變數。
 
 Frozen：無（bootstrap；尚無驗收測試，SPEC §8.3）
 
@@ -63,7 +65,7 @@ Commands：`pwsh ./scripts/verify.ps1 -Risk L2`
 Stop：最多兩輪修正；同一問題連續兩輪沒有新證據或進展就交接。
 
 Definition of Done：
-- CI 的 verify job 中 L2 步驟全部通過
+- CI 結果與 AC9 一致
 - Codex 審查沒有 BLOCKING，審查檔的 head SHA 等於 PR head
 - 人核准後合併，並依 SPEC §6.5 設定 repo
 

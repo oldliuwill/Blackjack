@@ -1,6 +1,6 @@
 # SPEC-001：Blackjack 網頁遊戲 MVP
 
-版本：草稿 1 · 2026-10-15 · 作者：協調者（Claude Opus）· 狀態：待 Codex 審查、待人確認 §9.3 的新增案例
+版本：草稿 2 · 2026-10-15 · 作者：協調者（Claude Opus）· 狀態：已過 Codex 審查一輪；待人確認 §10 第 1–3 點
 
 依據：
 
@@ -28,7 +28,7 @@
 ### 3.1 牌與牌靴
 
 - **G1** 牌靴是 6 副標準 52 張牌，共 312 張；每個「花色＋點數」各 6 張。[D9、R1]
-- **G2** 洗牌用 Fisher–Yates：`i` 從 `n−1` 遞減到 1，`j = Math.floor(random() × (i + 1))`，交換第 `i`、`j` 張。`random` 回傳 `[0, 1)`；預設來源是 `crypto.getRandomValues`，可以注入。[D12]
+- **G2** 洗牌用 Fisher–Yates：`i` 從 `n−1` 遞減到 1，`j = Math.floor(random() × (i + 1))`，交換第 `i`、`j` 張。`random` 回傳 `[0, 1)`；預設來源是 `crypto.getRandomValues`，可以注入。洗牌前的排列：第 1 副到第 6 副依序排列，每副依花色 S、H、D、C，每個花色依 A、2…10、J、Q、K。洗牌後從索引 0 開始抽。[D12]
 - **G3** 重洗只在 `deal()` 發第一張牌之前檢查：牌靴剩 78 張（`RESHUFFLE_AT`）或更少時，換成一副新洗的 312 張牌靴。牌局中途一律不重洗。[D24、R1a]
 - **G4** 不燒牌。[D27]
 - **G5** 發牌順序：玩家第一張、莊家明牌、玩家第二張、莊家暗牌。之後依動作順序，從牌靴頂端逐張抽牌。[D27、規則研究共同前提]
@@ -99,9 +99,9 @@
 - **U2** 發牌與翻牌用 CSS 動畫；遵守 `prefers-reduced-motion`。不做音效。[D11]
 - **U3** 用籌碼 10、50、100、500 組出下注額，可清除。超過 500 或超過資金的籌碼要停用。[D10、D31]
 - **U4** Hit、Stand、Double、Split 按鈕依 `availableActions()` 啟用。鍵盤 H、S、D、P 對應同一組動作，不可用的動作按鍵無效。[D12、D28]
-- **U5** 提供 Deal、Next hand 按鈕；資金少於 10 時才出現 Reset bankroll。[D10、D12]
+- **U5** 提供 Deal、Next hand 按鈕。Reset bankroll 只在 `phase === 'betting'` 且資金少於 10 時出現（全押後的 playerTurn 與 settled 都不出現）。[D10、D12、G14]
 - **U6** 顯示每手的牌、點數（soft 要標示）、注額與結果，莊家可見的牌，以及該局淨輸贏。結果文字放在 `aria-live` 區域。
-- **U7** 每次狀態改變後把資金寫進 `localStorage`，key 為 `blackjack.bankroll`。讀到的值不是大於等於 0 的整數時，改用 1,000。[D10、D12]
+- **U7** 每次狀態改變後把資金寫進 `localStorage`，key 為 `blackjack.bankroll`。讀取時只接受完全符合 `^\d+$` 的字串（例如 `'0'`、`'1500'`）；其他值（沒有值、空字串、含空白、`'1e3'`、`'-5'`、`'10.5'`）一律改用 1,000。讀寫丟出例外時（例如瀏覽器停用儲存）視為沒有值、略過寫入，遊戲照常進行。[D10、D12]
 - **U8** 牌面與籌碼由 SVG 或 CSS 產生；裝飾圖取自 `public/assets/`，圖檔不存在時退回純色，畫面不能壞掉。[D20]
 
 ## 4. 引擎公開 API
@@ -190,7 +190,9 @@ export class Shoe {
 }
 ```
 
-用相同的 `random` 數列建立的兩副牌靴，抽牌順序必須完全相同。牌局流程中不會發生 `SHOE_EMPTY`：每局開始時牌靴至少有 79 張，一局用不到這麼多。
+用相同的 `random` 數列建立的兩副牌靴，抽牌順序必須完全相同（G2 已固定初始排列與抽牌方向）。牌局流程中不會發生 `SHOE_EMPTY`：每局開始時牌靴至少有 79 張，一局用不到這麼多。
+
+所有權：`Card` 視為不可變的值。傳給 `createGame` 的 `Shoe` 從此歸牌局所有，呼叫端之後不得再對它 `draw()`。
 
 ### 4.3 計點
 
@@ -233,9 +235,9 @@ export function createGame(options?: GameOptions): Game;
 
 **失敗不留痕跡**：任何方法丟出 `RuleError` 後，`state()` 必須與呼叫前深度相等，牌靴張數不變。
 
-**快照獨立**：`state()` 每次回傳新的物件，不與引擎內部共用可變參照；呼叫端修改回傳值不影響遊戲。
+**快照獨立**：每個回傳 `GameState` 的方法（`state`、`deal`、`act`、`nextRound`、`resetBankroll`）每次都回傳新的物件，包括巢狀的陣列與 `Card`，不與引擎內部共用可變參照；呼叫端修改回傳值不影響遊戲。
 
-`deal()` 的步驟：G3 檢查與重洗 → 扣原注 → G5 發四張 → G16 → G17 → G18。`act()` 結束最後一手時，同一次呼叫內完成 G20 與 G27–G29，回傳 settled 狀態。
+`deal()` 通過上表的檢查後，依序執行：G3 檢查與重洗 → 扣原注 → G5 發四張 → G16 → G17 → G18。檢查失敗時不重洗。`act()` 結束最後一手時，同一次呼叫內完成 G20 與 G27–G29，回傳 settled 狀態。
 
 ### 4.5 錯誤
 
@@ -315,19 +317,24 @@ Node 24 LTS（`engines.node: ">=24 <25"`）、npm。`package.json` 一律寫精�
 - 必要步驟沒跑到就失敗，不管原因是缺目錄、缺工具或被跳過。
 - Vitest 的 `include` 只收 `tests/unit/**/*.test.ts` 與 `tests/acceptance/**/*.test.ts`；Playwright 只收 `tests/e2e/**/*.spec.ts`。兩邊不能收到對方的檔案。
 - 沒有設定 `PLAYWRIGHT_BROWSERS_PATH` 而且不在 CI（`$env:CI` 未設定）時，腳本設為 `D:\ai\.cache\ms-playwright`。[D23]
-- Playwright 先在本機 Windows 10 試跑，可以就照用，並記為「不在官方支援範圍」；不行就改為只在 CI 跑，並記為 baseline 發現。[D22]
+- Playwright 先在本機 Windows 10 試跑，可以就照用，並記為「不在官方支援範圍」。[D22] 不行的話改用以下契約，並記為 baseline 發現：
+  - 機器層級設定環境變數 `VERIFY_E2E=ci-only`（由人設定，agent 不設）。
+  - 非 CI 環境下，verify.ps1 把 e2e 記為 `deferred`，不算缺少；結束訊息與 `verify.log` 都要標明 `e2e deferred to CI`。
+  - CI 一律執行 e2e，忽略這個變數。卡的完成本來就以 CI 對 head commit 的 verify 為準，所以完成條件不變。
 - 不做截圖比對。[D15]
 
 ### 6.3 CI（`.github/workflows/verify.yml`）[D18]
 
-- 觸發：對 `main` 的 `pull_request`。權限 `contents: read`，不放任何 secrets。
-- `classify`（ubuntu-latest）：
-  - 變更觸及 §7 的 L3 路徑 → L3；全部檔案都在 L1 範圍 → L1；其他 → L2。
-  - 變更觸及 `tests/acceptance/`、`docs/specs/`、`.ai/task-contracts/` 時，PR 必須有 `contract-change` 標籤。
-  - L3：從分支名 `task/NNN` 找到 `.ai/task-contracts/TASK-NNN.md`，讀出 `Frozen` SHA；SHA 必須存在於歷史中，而且 `tests/acceptance/` 自該 SHA 起沒有變動（有 `contract-change` 標籤時例外）。
-- `verify`（windows-latest）：setup-node 24 → `npm ci` → `npx playwright install chromium` → `pwsh ./scripts/verify.ps1 -Risk <classify 的結果>`。
+- 觸發：對 `main` 的 `pull_request`，types 為 `opened`、`synchronize`、`reopened`、`labeled`、`unlabeled`（加減標籤會重跑）。權限 `contents: read`，不放任何 secrets。
+- `classify`（ubuntu-latest）：只計算並輸出 `risk`，不做會失敗的檢查。變更觸及 §7 的 L3 路徑 → L3；全部檔案都在 L1 範圍 → L1；其他 → L2。
+- `contract`（ubuntu-latest）：
+  - 相對於 `main`，變更觸及 `tests/acceptance/`、`docs/specs/`、`.ai/task-contracts/` 時，PR 必須有 `contract-change` 標籤。
+  - risk 為 L3 時：從分支名 `task/NNN` 找到 `.ai/task-contracts/TASK-NNN.md`，讀出 `Frozen` SHA（卡上寫法固定為 `Frozen：<SHA>`）。SHA 必須存在於歷史中，而且 `tests/acceptance/` 自該 SHA 起沒有變動。**這項檢查不能用標籤略過**：凍結後要改驗收測試，就連同卡上的 `Frozen` 一起更新，由 Code Owner 核准。
+- `verify`（windows-latest，只依賴 `classify`，所以 `contract` 失敗時照樣執行）：setup-node 24 → `npm ci` → `npx playwright install chromium` → `pwsh ./scripts/verify.ps1 -Risk <classify 的結果>`。
 - `dependency-review`（ubuntu-latest）。
 - Action 版本：`actions/checkout@v7.0.1`、`actions/setup-node@v7.1.0`、`actions/dependency-review-action@v5.0.0`。
+
+baseline A14 把契約檢查放在 classify 內，verify 又依賴 classify；契約檢查一失敗，verify 就被略過，看不到驗證結果。本專案拆成兩個 job。
 
 ### 6.4 Stop hook 與 trace
 
@@ -335,7 +342,7 @@ Node 24 LTS（`engines.node: ">=24 <25"`）、npm。`package.json` 一律寫精�
 
 ### 6.5 TASK-001 合併後由人設定
 
-- ruleset `main-protection` 加上必要檢查 `classify`、`verify`、`dependency-review`，以及 Code Owner 核准 [D5]
+- ruleset `main-protection` 加上必要檢查 `classify`、`contract`、`verify`、`dependency-review`，以及 Code Owner 核准 [D5]
 - CodeQL default setup（JavaScript/TypeScript）、secret scanning 與 push protection、Actions 預設 workflow 權限設為唯讀 [D18]
 - 協調者屆時列出確切的設定位置
 
@@ -343,7 +350,7 @@ Node 24 LTS（`engines.node: ">=24 <25"`）、npm。`package.json` 一律寫精�
 
 | 等級 | 路徑 |
 | --- | --- |
-| L3 | `src/engine/**`、`package.json`、`package-lock.json`、`.github/**`、`scripts/verify.ps1`、`.claude/**` |
+| L3 | `src/engine/**`、`package.json`、`package-lock.json`、`.github/**`、`scripts/verify.ps1`、`.claude/**`；**D34（待人確認）**：再加上會改變驗收含義或關卡範圍的檔案：`tests/support/**`、`vite.config.ts`、`tsconfig.json`、`eslint.config.mjs`、`playwright.config.ts` |
 | L2 | `src/ui/**`、`src/main.ts`、`index.html`，以及其他未列出的檔案 |
 | L1 | 文件（`docs/**`、`.ai/**`、`*.md`）、`*.css`、`public/assets/**` |
 
@@ -368,7 +375,7 @@ Node 24 LTS（`engines.node: ">=24 <25"`）、npm。`package.json` 一律寫精�
 2. Codex 在獨立 worktree 寫 `tests/acceptance/`，依 §9 的案例，`$noWeb`、effort high。協調者跑 `check-acceptance-diff.ps1`，Claude（唯讀子代理）反向審斷言，人抽查後凍結，SHA 寫進卡的 `Frozen`。
 3. 協調者在 `D:\ai\projects\Blackjack-wt\task-NNN` 從 `task/NNN` 建 worktree；人在那裡開實作者 session（Opus），貼上一行啟動提示。[D2]
 4. 實作到 `pwsh ./scripts/verify.ps1 -Risk L3` 通過，commit。協調者 push 並開 PR。[D33]
-5. Codex 審 diff（`$noWeb`、固定 base／head SHA）→ 修正最多兩輪 → 人加 `contract-change` 標籤並核准 → merge。
+5. 協調者開 PR 時請人加 `contract-change` 標籤（這張卡新增了驗收測試並更新了卡上的 `Frozen`），CI 隨標籤重跑 → Codex 審 diff（`$noWeb`、固定 base／head SHA）→ 修正最多兩輪 → 人核准 → merge。
 
 L2 卡：Sonnet 實作 → verify → Opus 唯讀子代理審（TASK-004 另交 Codex 審一次，比較兩邊）→ 人核准。L1 卡：直接實作 → `verify -Quick` → CI。
 
@@ -378,7 +385,7 @@ L2 卡：Sonnet 實作 → verify → Opus 唯讀子代理審（TASK-004 另交 
 | --- | --- | --- | --- | --- | --- |
 | TASK-001 | L3 | 協調者 [D32] | Vite 骨架、相依、`verify.ps1`、CI、CODEOWNERS、AGENTS.md、`.claude/settings.json`、Stop hook | 卡上 AC1–AC9 | plan PR |
 | TASK-002 | L3 | Opus | §4.1–4.3、§4.5：型別、常數、錯誤、牌靴、計點 | §9.2 C1–C5 | 001 |
-| TASK-003 | L3 | Opus | §4.4：牌局流程、動作、莊家、結算 | §9.3 S1–S16、B1–B14 | 002 |
+| TASK-003 | L3 | Opus | §4.4：牌局流程、動作、莊家、結算 | §9.3 S1–S16、B1–B18 | 002 |
 | TASK-004 | L2 | Sonnet | §3.8 介面與 localStorage；完整冒煙測試 | 卡上案例 | 003 |
 | TASK-005 | L1 | agy（Gemini Flash） | 牌背、桌面絨布、Logo 等裝飾圖 [D20] | 人看圖核准 | 001 |
 | TASK-006 | L3 | Opus | `.github/workflows/pages.yml`，Pages 部署需人核准 [D19] | 卡上案例 | 004 |
@@ -387,7 +394,14 @@ L2 卡：Sonnet 實作 → verify → Opus 唯讀子代理審（TASK-004 另交 
 
 ### 8.3 bootstrap 例外 [D32]
 
-TASK-001 會觸及 L3 路徑，但當時還沒有驗收測試，所以它的 PR 一定過不了 L3 關卡（缺 `Frozen`、缺 `tests/acceptance/`）。這時 ruleset 還沒要求必要檢查，人確認 CI 的 L2 步驟（typecheck、lint、unit、build、e2e）都通過後核准合併，並記為試行發現。之後非引擎的 L3 卡（例如 TASK-006）的 `Frozen` 填最近一次凍結的驗收 SHA，CI 只核對它沒被改動。
+TASK-001 會觸及 L3 路徑，但當時還沒有驗收測試，所以它的 PR 一定過不了 L3 關卡。預期的 CI 結果：
+
+- `classify` 輸出 L3。
+- `contract` 因卡上沒有 `Frozen` SHA 而失敗。
+- `verify` 照樣執行：typecheck、lint、unit、build、e2e 五步都通過，最後只因 `required steps not run: acceptance` 失敗。
+- `dependency-review` 通過。
+
+這時 ruleset 還沒要求必要檢查，人確認結果與上面一致後核准合併，並記為試行發現。之後非引擎的 L3 卡（例如 TASK-006）的 `Frozen` 填最近一次凍結的驗收 SHA，CI 只核對它沒被改動。
 
 ### 8.4 合併順序
 
@@ -406,8 +420,8 @@ TASK-001 會觸及 L3 路徑，但當時還沒有驗收測試，所以它的 PR 
 - 每個完整牌局的案例都斷言：
   - 每手的 `outcome`、`payout`
   - `summary` 的 `totalBet`、`totalReturn`、`net`
-  - 最終資金等於 1,000 加 `net`
-  - `shoeRemaining` 等於 312 減牌序列出的張數（同時檢查 G4、G20 沒有多抽）
+  - 最終資金等於起始資金加 `net`
+  - 用 `stackedShoe` 的案例：`shoeRemaining` 等於 312 減牌序列出的張數（同時檢查 G4、G20 沒有多抽）。用 `Shoe.fromCards` 指定張數的 B1、B2 以表中的數字為準
 - 每個案例的測試開頭註明規則編號與預期值來源。
 
 ### 9.2 TASK-002：牌靴與計點
@@ -452,11 +466,11 @@ C4 的 `handValue`：
 | S14 | playerTurn 中 `act('surrender')`、`act('insurance')`（以型別斷言傳入）丟 `ILLEGAL_ACTION`，狀態不變 | G25、§4.4 |
 | S16 | 第 1 手拿到第二張 8 後，可用動作為 hit、stand、double；`act('split')` 丟 `ILLEGAL_ACTION`，狀態與呼叫前深度相等 | G25、§4.4 |
 
-**B1–B14**：新增的邊界案例。預期值來源：所列規則，由協調者手算。**待人確認**。牌序寫法同規則研究：分號前是起手四張，分號後依序抽出。
+**B1–B18**：新增的邊界案例。預期值來源：所列規則，由協調者手算。**待人確認**。牌序寫法同規則研究：分號前是起手四張，分號後依序抽出。
 
 | # | 牌序與設定 | 動作 | 預期 | 規則 |
 | --- | --- | --- | --- | --- |
-| B1 | `Shoe.fromCards` 恰 79 張，前五張 `5, 10, 6, 7; 2` | `deal(100)` → `hit` → `stand` → `nextRound()` → `deal(100)` | 第一次 deal 後 `reshuffled` false、剩 75 張；hit 拿到的是排定的 2（牌局中途沒有重洗），剩 74 張；stand 後莊家 17 不補牌，玩家 13 輸，淨 −100；第二次 deal 後 `reshuffled` true，剩 308 張，資金 800 | G3 |
+| B1 | `Shoe.fromCards` 恰 79 張，前五張 `5, 10, 6, 7; 2` | `deal(100)` → `hit` → `stand` → `nextRound()` → `deal(100)` | 第一次 deal 後 `reshuffled` false、剩 75 張；hit 拿到的是排定的 2（牌局中途沒有重洗），剩 74 張；stand 後莊家 17 不補牌，玩家 13 輸，淨 −100；第二次 deal 後 `reshuffled` true，剩 308 張（重洗後的牌序是隨機的，可能立即結算，所以不斷言資金與 phase） | G3 |
 | B2 | `Shoe.fromCards` 恰 78 張；另一局恰 77 張 | `deal(100)` | 兩局都是 `reshuffled` true、剩 308 張 | G3 |
 | B3 | `K, 9, Q, 7; 8, 10, 2` | `deal(100)` → `split` → `stand` → `stand` | deal 後可用 hit、stand、double、split；H1 [K,8] 18 `push` 返還 100；H2 [Q,10] 20 `win` 返還 200；莊家 [9,7,2] 18；總押注 200、總返還 300、淨 +100 | G25、G26、G27 |
 | B4 | `9, 7, K, 8` | `deal(100)` | 可用動作為 hit、stand、double（9 與 K 點數不同，不能分） | G25 |
@@ -465,16 +479,30 @@ C4 的 `handValue`：
 | B7 | `10, 6, 6, 10; K` | `deal(100)` → `hit` | 玩家 26 爆牌；莊家 [6,10] 16 不補牌；`lose`，淨 −100 | G20 |
 | B8 | `8, 5, 8, 10; 10, 6, 10, 9` | `deal(100)` → `split` → `hit` → `hit` | H1 [8,10,6] 24 爆牌；H2 [8,10,9] 27 爆牌；莊家 [5,10] 15 不補牌；兩手 `lose`；總押注 200、淨 −200 | G20 |
 | B9 | 起始資金 150；`8, 9, 8, 7` | `deal(100)` → `double` → `split` | deal 後資金 50，可用動作只有 hit、stand；`double`、`split` 都丟 `ILLEGAL_ACTION`，狀態不變。另一局起始資金 200、同牌序：deal 後資金 100，可用 hit、stand、double、split | G13 |
-| B10 | 起始資金 1,000 | `deal(0)`、`deal(5)`、`deal(15)`、`deal(510)`、`deal(100.5)`、`deal(NaN)` | 都丟 `INVALID_BET`，狀態不變。起始資金 50 時 `deal(100)` 丟 `INSUFFICIENT_FUNDS`、`deal(15)` 丟 `INVALID_BET`。各用新牌局：`deal(10)` 後資金 990，`deal(500)` 後資金 500 | G11、§4.4 |
+| B10 | 起始資金 1,000 | `deal(0)`、`deal(5)`、`deal(15)`、`deal(510)`、`deal(100.5)`、`deal(NaN)` | 都丟 `INVALID_BET`，狀態不變。起始資金 50 時 `deal(100)` 丟 `INSUFFICIENT_FUNDS`、`deal(15)` 丟 `INVALID_BET`。各用新牌局，牌序 `10, 9, 7, 8`（不會立即結算）：`deal(10)` 後 phase 為 playerTurn、資金 990；`deal(500)` 後 phase 為 playerTurn、資金 500 | G11、§4.4 |
 | B11 | 起始資金 5；10；10 加牌序 `10, 9, 7, 8` | `resetBankroll()`；`resetBankroll()`；`deal(10)` → `resetBankroll()` | 資金 5 → 1,000；資金 10 → 丟 `ILLEGAL_ACTION`，仍為 10；deal(10) 後資金 0、phase 為 playerTurn → 丟 `WRONG_PHASE` | G14 |
-| B12 | S5 的牌序 `10, A, 8, 6` | 新牌局 `act('hit')`、`nextRound()`；`deal(100)` 後再 `deal(100)`、`nextRound()`；`stand` 後再 `act('stand')`、`deal(100)`；最後 `nextRound()` | 新牌局可用動作為空，兩個呼叫都丟 `WRONG_PHASE`；playerTurn 中的兩個呼叫都丟 `WRONG_PHASE`；settled 後的兩個呼叫都丟 `WRONG_PHASE`，資金維持 1,100（不重複結算）；`nextRound()` 後 phase 為 betting，`hands` 與莊家 `cards` 為空，`summary` 為 null，資金 1,100 | G21、G29、§4.4 |
+| B12 | S5 的牌序 `10, A, 8, 6` | 新牌局 `act('hit')`、`nextRound()`；`deal(100)` 後再 `deal(100)`、`nextRound()`；`stand` 後再 `act('stand')`、`deal(100)`；最後 `nextRound()` | 新牌局可用動作為空，兩個呼叫都丟 `WRONG_PHASE`；playerTurn 中的兩個呼叫都丟 `WRONG_PHASE`，`deal(5)` 也丟 `WRONG_PHASE`（階段檢查優先於下注檢查）；settled 後的兩個呼叫都丟 `WRONG_PHASE`，資金維持 1,100（不重複結算）；`nextRound()` 後 phase 為 betting，`hands` 與莊家 `cards` 為空，`summary` 為 null，資金 1,100 | G21、G29、§4.4 |
 | B13 | `A, 9, 7, 8; 3` | `deal(100)` → `double` | deal 後可用 hit、stand、double；加倍後手牌 [A,7,3] 為 `{ total: 21, soft: true }`；莊家 [9,8] 17；`win` 返還 400；總押注 200、淨 +200 | G7、G24 |
-| B14 | `10, 9, 7, 8` | `deal(100)` → 修改 `state()` 回傳的 `hands` 陣列與 `bankroll` 欄位（以型別斷言） | 再次呼叫 `state()` 的結果與修改前相同 | §4.4 快照獨立 |
+| B14 | `10, 9, 7, 8` | `deal(100)` → 以型別斷言修改 `deal()` 與 `state()` 回傳值：`bankroll`、`hands` 陣列、`hands[0].cards` 陣列、`hands[0].cards[0].rank` | 再次呼叫 `state()` 的結果與修改前相同 | §4.4 快照獨立 |
+| B15 | — | `createGame({ bankroll })`，bankroll 為 −1、10.5、NaN；另一次為 0 | 前三者丟 `INVALID_BANKROLL`；0 可建立，phase 為 betting | §4.4 |
+| B16 | `8, 6, 8, 10; 10, 5, 10, K` | `deal(100)` → `split` → `hit` → `stand` | H1 [8,10,5] 23 爆牌；H2 [8,10] 18；H2 沒爆牌，所以莊家 [6,10] 補 K 成 26 爆牌；H1 仍是 `lose`（玩家先爆牌即輸），H2 `win` 返還 200；總押注 200、總返還 200、淨 0 | G20、G27 |
+| B17 | `5, 7, 5, 9; 6, 10, 5, K, 2` | `deal(100)` → `split` → `double` → `double` | H1 [5,6,10] 21、注額 200；H2 [5,5,K] 20、注額 200；兩次加倍前資金分別為 800、700，最後 600；莊家 [7,9,2] 18；兩手 `win` 各返還 400；總押注 400、總返還 800、淨 +400；最終資金 1,400 | G13、G24、G25 |
+| B18 | `K, 10, K, 6; A, 7, 5` | `deal(100)` → `split` → `stand` | 明牌 10 先 peek，暗牌 6 不是 Blackjack；H1 [K,A] 21 自動停牌；H2 [K,7] 17；莊家 [10,6,5] 21；H1 `push` 返還 100（分牌 21 不是 Blackjack）；H2 `lose`；總押注 200、總返還 100、淨 −100 | G9、G16、G19、G27 |
 
 ## 10. 未決事項與假設
 
 1. **待人核准**：`@eslint/js` 10.0.1、`typescript-eslint` 8.71.2（§6.1）。
-2. **待人確認**：§9.2 的 C1–C5、§9.3 的 B1–B14 與追加斷言的預期值。確認後才能交給 Codex 寫斷言。
-3. **假設**：Pages 網址是 `https://oldliuwill.github.io/Blackjack/`，Vite `base` 為 `/Blackjack/`。TASK-001 先設好 `base`，讓冒煙測試與部署走同一個路徑。
-4. **假設**：Playwright 1.64.1 能在本機 Windows 10 執行（D22）。TASK-001 實測後記錄結果。
-5. **已知限制**：TASK-001 的 PR 過不了 L3 關卡（§8.3）。
+2. **待人確認**：§9.2 的 C1–C5、§9.3 的 B1–B18 與追加斷言的預期值。確認後才能交給 Codex 寫斷言。
+3. **待人確認**：D34，把 `tests/support/**` 與四個關卡設定檔列為 L3（§7）。
+4. **假設**：Pages 網址是 `https://oldliuwill.github.io/Blackjack/`，Vite `base` 為 `/Blackjack/`。TASK-001 先設好 `base`，讓冒煙測試與部署走同一個路徑。
+5. **假設**：Playwright 1.64.1 能在本機 Windows 10 執行（D22）。TASK-001 實測後記錄結果；不行就改用 §6.2 的 `VERIFY_E2E=ci-only` 契約。
+6. **假設**：七個套件版本各自可追溯到工具鏈研究，但整組能一起安裝與通過驗證尚未證實，由 TASK-001 的 AC1、AC2 關閉。
+7. **假設**：repo 為公開，可使用 ruleset、Code Owner 核准、dependency review、environment required reviewers；ruleset 已實際啟用。其餘功能在 §6.5 設定時確認。
+8. **已知限制**：TASK-001 的 PR 過不了 L3 關卡（§8.3）。
+
+## 計畫審查紀錄
+
+| 輪次 | 審查者 | 對象 | 結果 |
+| --- | --- | --- | --- |
+| 1 | Codex（`$noWeb`、effort medium、唯讀） | 草稿 1（commit `fb53683`） | BLOCKING 5、NON-BLOCKING 7、假設 3；全部有效，已修正為草稿 2。手算核對 S1–S16、C1–C5 與 B2–B9、B11–B14，預期值正確 |
+| 1 | Gemini Flash（agy） | 同上 | 未執行：agy 連 `googleapis.com` 的登入檢查被重設連線，兩次都在 5 秒內失敗 |

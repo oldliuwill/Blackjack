@@ -27,13 +27,13 @@ Forbidden Changes：
 - `tests/acceptance/**`、`tests/support/**`、`docs/specs/**`、`.ai/task-contracts/**`
 - `package.json`、`package-lock.json`
 
-Acceptance：SPEC §9.3 的 S1–S16（含追加斷言）與 B1–B14，預期值來源見該節。
+Acceptance：SPEC §9.3 的 S1–S16（含追加斷言）與 B1–B18，預期值來源見該節。
 
 Frozen：（Codex 寫完、人抽查核准後填）
 
 Verification Contract：
 - Unit：狀態轉換與可用動作的判斷
-- Acceptance：凍結的 S1–S16、B1–B14
+- Acceptance：凍結的 S1–S16、B1–B18
 - Build、E2E：沿用既有關卡
 
 Commands：`pwsh ./scripts/verify.ps1 -Risk L3`
