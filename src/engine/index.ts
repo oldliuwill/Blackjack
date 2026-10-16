@@ -1,5 +1,4 @@
-// The engine's only public entry point (SPEC-001 §4). Export exactly what §4 lists; createGame, Game and
-// GameOptions arrive with TASK-003.
+// The engine's only public entry point (SPEC-001 §4). Export exactly what §4 lists.
 export type {
   Action,
   Card,
@@ -28,3 +27,5 @@ export { RuleError } from './errors.ts';
 export type { RuleErrorCode } from './errors.ts';
 export { Shoe, cryptoRandom } from './shoe.ts';
 export { handValue, isBlackjack } from './cards.ts';
+export { createGame } from './game.ts';
+export type { Game, GameOptions } from './game.ts';

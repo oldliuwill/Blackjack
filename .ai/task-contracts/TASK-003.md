@@ -29,7 +29,7 @@ Forbidden Changes：
 
 Acceptance：SPEC §9.3 的 S1–S16（含追加斷言）與 B1–B18，預期值來源見該節。
 
-Frozen：（Codex 寫完、人抽查核准後填）
+Frozen：d95af4fcf4c75c4b2ab32f1c9e354056d3897794
 
 Verification Contract：
 - Unit：狀態轉換與可用動作的判斷
