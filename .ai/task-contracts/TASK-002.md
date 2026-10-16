@@ -29,7 +29,7 @@ Forbidden Changes：
 
 Acceptance：SPEC §9.2 的 C1–C5，預期值來源見該節。
 
-Frozen：（Codex 寫完、人抽查核准後填）
+Frozen：00131e111a3bdb2f3fbc01a70c53467b268a0410
 
 Verification Contract：
 - Unit：G2 的洗牌演算法（用確定性 `random` 驗證交換順序）、`cryptoRandom` 回傳值落在 `[0, 1)`
