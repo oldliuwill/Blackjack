@@ -1,19 +1,399 @@
 :root {
   color-scheme: dark;
+  /* Palette shared with the TASK-005 artwork. */
+  --felt: #0b5d3b;
+  --felt-shadow: #06301f;
+  --gold: #c9a227;
+  --wine: #7a1f2b;
+  --cream: #f4ebd0;
+  --paper: #fffdf6;
+  --ink: #1b1b1b;
+  --suit-red: #b3261e;
+  --card-w: 3.5rem;
+  --card-h: 5rem;
+  --card-step: 1.9rem; /* the visible strip of a card covered by the next one */
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.5;
-  color: #f4f1e8;
-  background-color: #0b5d3b;
+  line-height: 1.4;
+  color: var(--cream);
+  background-color: var(--felt-shadow);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 #app {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
   max-width: 960px;
+  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 0.75rem;
   text-align: center;
+  /* U8: felt.png when it exists, the plain felt color when it does not. */
+  background-color: var(--felt);
+  background-image:
+    radial-gradient(ellipse at 50% 35%, rgb(255 255 255 / 0.08), transparent 70%),
+    var(--felt-image, none);
+  background-size: auto, 256px 256px;
+}
+
+/* Header */
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 1.4rem;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+}
+
+.logo {
+  width: 2rem;
+  height: 2rem;
+}
+
+.bankroll,
+.bet {
+  margin: 0;
+}
+
+.bankroll__amount,
+.bet__amount {
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+}
+
+/* Table */
+
+.felt {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.seat__label {
+  margin: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.seat__total,
+.hand__total {
+  font-weight: 700;
+}
+
+.status {
+  min-height: 1.5em;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.hands {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: calc(var(--card-h) + 3rem);
+}
+
+.hand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.4rem;
+  border: 2px solid transparent;
+  border-radius: 0.6rem;
+}
+
+.hand--active {
+  border-color: var(--gold);
+  background: rgb(0 0 0 / 0.15);
+}
+
+.hand__info {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem 0.6rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.hand__outcome {
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--cream);
+}
+
+.hand__outcome--win,
+.hand__outcome--blackjack {
+  background: var(--gold);
+}
+
+.hand__outcome--lose {
+  color: var(--cream);
+  background: var(--wine);
+}
+
+/* Cards: each card takes a narrow slot and overlaps the next; slots shrink before a row can overflow. */
+
+.cards {
+  display: flex;
+  justify-content: center;
+  max-width: 100%;
+  min-height: var(--card-h);
+}
+
+.card {
+  flex: 0 1 var(--card-step);
+  min-width: 0;
+  animation: card-deal 280ms ease-out both;
+  animation-delay: calc(var(--deal-order, 0) * 140ms);
+}
+
+.card:last-child {
+  flex: 0 0 var(--card-w);
+}
+
+.card--flip {
+  animation-name: card-flip;
+}
+
+.card__face {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: 0.4rem;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.35);
+}
+
+.card--red .card__face {
+  color: var(--suit-red);
+}
+
+.card__corner {
+  position: absolute;
+  top: 0.2rem;
+  left: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.card__pip {
+  font-size: 1.75rem;
+}
+
+/* U8: card-back.png when it exists, a wine and gold pattern when it does not. */
+.card--back .card__face {
+  border: 3px solid var(--cream);
+  background-color: var(--wine);
+  background-image:
+    var(--card-back-image, none),
+    repeating-linear-gradient(45deg, rgb(201 162 39 / 0.45) 0 2px, transparent 2px 7px);
+  background-size: 100% 100%, auto;
+}
+
+@keyframes card-deal {
+  from {
+    opacity: 0;
+    transform: translateY(-1.5rem) scale(0.9);
+  }
+}
+
+@keyframes card-flip {
+  from {
+    transform: perspective(30rem) rotateY(90deg);
+  }
+
+  to {
+    transform: perspective(30rem) rotateY(0);
+  }
+}
+
+/* U2 */
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+}
+
+/* Controls */
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.panel--actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 32rem;
+  margin-inline: auto;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 22rem;
+}
+
+.row > .btn {
+  flex: 1;
+}
+
+.btn {
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--cream);
+  border-radius: 0.6rem;
+  font: inherit;
+  font-weight: 700;
+  color: var(--cream);
+  background: rgb(0 0 0 / 0.25);
+  cursor: pointer;
+}
+
+.panel--actions .btn {
+  padding-inline: 0.25rem;
+}
+
+.btn--primary {
+  border-color: var(--gold);
+  color: var(--ink);
+  background: var(--gold);
+}
+
+.chip {
+  --chip-color: var(--cream);
+  --chip-edge: #2f6db5;
+  --chip-text: var(--ink);
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 0.3rem dashed var(--chip-edge);
+  border-radius: 50%;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--chip-text);
+  background: var(--chip-color);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.4);
+  cursor: pointer;
+}
+
+.chip[data-value='50'] {
+  --chip-color: var(--wine);
+  --chip-edge: var(--cream);
+  --chip-text: var(--cream);
+}
+
+.chip[data-value='100'] {
+  --chip-color: #1f1f1f;
+  --chip-edge: var(--cream);
+  --chip-text: var(--cream);
+}
+
+.chip[data-value='500'] {
+  --chip-color: var(--gold);
+  --chip-edge: var(--wine);
+  --chip-text: var(--ink);
+}
+
+.btn:disabled,
+.chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible,
+.chip:focus-visible {
+  outline: 3px solid var(--cream);
+  outline-offset: 2px;
+}
+
+.key {
+  margin-left: 0.35rem;
+  padding: 0 0.3rem;
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  font-family: inherit;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+/* Keyboard hints only where there is room for them; phones have no keyboard to use them with. */
+@media (max-width: 26rem) {
+  .key {
+    display: none;
+  }
 }
