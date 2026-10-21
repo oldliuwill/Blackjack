@@ -98,7 +98,7 @@ Head：5dbaf214a8e9269675c0fadaec174e3e836c9ec6
 - NON-BLOCKING 1（拆卡）：規則觸發成立。不拆；TASK-005 寫卡時把 diff 規模列入考量。
 - NON-BLOCKING 2（`Number.isSafeInteger`）：成立，與 Opus 的第 3 項相同。屬 SPEC 缺口，記進 SPEC-001 §9 的待補清單，不修。
 - NON-BLOCKING 3（三張裝飾圖的 404 豁免）：`tests/e2e/smoke.spec.ts:97–98` 成立。豁免只比對 `${root}assets/<name>`，目前 `public/` 不存在，所以本卡合理；記給 TASK-005：加入圖檔時一併收掉豁免。
-- NON-BLOCKING 4（同一 phase 內按鈕停用後焦點遺失）：程式碼核對成立，`moveFocus` 只在 phase 改變時執行。瀏覽器裡的實際行為在人工驗收時確認。
+- NON-BLOCKING 4（同一 phase 內按鈕停用後焦點遺失）：成立。`moveFocus` 只在 phase 改變時執行；協調者在 `vite preview`（Chromium）重現：焦點在 `Add 500`，按下後按鈕停用、`document.activeElement` 變成 `body`，按 `Clear` 後也一樣。不在 U4 範圍內，不修，記給之後的介面卡。
 - NON-BLOCKING 5（莊家明牌 A 時顯示 `Soft 11`）：成立，SPEC §4 的 `DealerView.value` 等於 `handValue(cards)`，只算看得到的牌。數值正確，屬文案，不修。
 - NON-BLOCKING 6（`createApp` 的 `shoe` 參數）：審查者自己判定沒有違反（`main.ts` 不傳，沒有外部入口），協調者同意，不算缺陷。
 - TEST GAPS：A4-3 的快照只取 `main` 與資金，`footer` 控制區的啟用狀態不在比較內，成立；修飾鍵、`event.repeat`、U2、焦點、`browserStorage()` 的例外路徑沒測，成立；A4-4「更多手」不成立（D9 只能分牌一次，最多兩手），「每手更多張牌」在原則上成立。
