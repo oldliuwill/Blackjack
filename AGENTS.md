@@ -21,24 +21,26 @@
 
 ## 風險分級（與 CI classify、CODEOWNERS 同一份清單；SPEC-001 §7）
 
-- L3：`src/engine/**`、`package.json`、`package-lock.json`、`.github/**`、`scripts/verify.ps1`、`.claude/**`、`tests/support/**`、`vite.config.ts`、`tsconfig.json`、`eslint.config.mjs`、`playwright.config.ts`
+- L3：`src/engine/**`、`package.json`、`package-lock.json`、`.github/**`、`scripts/**`、`.claude/**`、`AGENTS.md`、`CLAUDE.md`、`tests/acceptance/**`、`tests/support/**`、`vite.config.ts`、`tsconfig.json`、`eslint.config.mjs`、`playwright.config.ts`
 - L2：`src/ui/**`、`src/main.ts`、`index.html`，以及其他未列出的檔案
-- L1：`docs/**`、`.ai/**`、`*.md`、`*.css`、`public/assets/**`
+- L1：`docs/**`、`.ai/**`、`*.md`、`*.css`、`public/assets/**`；L3 路徑先判，所以 `AGENTS.md`、`CLAUDE.md` 與 `.claude/` 底下的 `.md` 不會落到 L1
+- `docs/specs/**`、`.ai/task-contracts/**` 不提高等級（每張卡的 PR 都帶著自己的卡）；改由 `contract-change` 標籤與 CODEOWNERS 把關
 - 路徑之外：改 SPEC-001 §4 的公開 API 或型別一律 L3。發現卡的 Risk 低估就停下來回報，不要自己降級
-- L3 由 Codex 跨模型審查
+- L3 由 Opus 唯讀子代理（`diff-reviewer`）審查；關卡腳本與 CI 另加 Fable 第二審
 
 ## 標準做法（禁止重寫）
 
 - 引擎只從 `src/engine/index.ts` 匯入；計點、合法動作、結算只在引擎實作，UI 不重算
 - 亂數只用引擎的 `RandomSource`（預設 `cryptoRandom`）；測試用注入的亂數或 `Shoe.fromCards` 排定牌序
-- 引擎不得使用 `window`、`document`、`localStorage` 等 DOM 全域（ESLint 會擋）；localStorage 只經 storage 模組
+- 引擎不得使用 `window`、`document`、`localStorage` 等 DOM 全域（ESLint 會擋直接引用；用 `Reflect`、字串鍵或動態 import 繞過一樣違規）；localStorage 只經 storage 模組
 
 ## 不變量
 
 - 不做任務卡以外的重構；不改 SPEC-001 §4 公開 API，除非任務卡明列
 - 不得修改 `tests/acceptance/`、`docs/specs/`、`.ai/task-contracts/`
-- `tests/support/` 由協調者撰寫；實作者需要改時停下來回報
+- `tests/support/` 由協調者或規劃 session 撰寫；實作者需要改時停下來回報
 - 不得自行新增相依套件；版本一律精確值，新增需人工核准（SPEC-001 §6.1）
+- 不得放寬 `verify.ps1` 的必要步驟、Stop hook、lint 規則、CI 的觸發與權限
 - 不得 push、不得 `git commit --no-verify`；push 與開 PR 由協調者做
 - 同一問題連續兩輪沒有新證據或進展：停止，寫 `.ai/handoffs/TASK-NNN.md`（含精確的期望值、實際值、已排除的假設與證據）
 - 規則常數放在引擎常數（SPEC-001 §4.1），程式碼不得出現裸數字與金鑰；檔案超過約 800 行即拆分

@@ -37,7 +37,8 @@ jobs:
           git diff --name-only -z "origin/$BASE_REF...HEAD" > "$list"
           mapfile -d '' files < "$list"
           # L3 path list: the same list as AGENTS.md and CODEOWNERS (SPEC-001 §7).
-          l3='^(src/engine/|\.github/|\.claude/|tests/support/)|^(package\.json|package-lock\.json|scripts/verify\.ps1|vite\.config\.ts|tsconfig\.json|eslint\.config\.mjs|playwright\.config\.ts)$'
+          # docs/specs/ and .ai/task-contracts/ are not L3 on purpose: every card's PR carries its own card (SPEC-001 §7).
+          l3='^(src/engine/|\.github/|\.claude/|scripts/|tests/support/|tests/acceptance/)|^(package\.json|package-lock\.json|AGENTS\.md|CLAUDE\.md|vite\.config\.ts|tsconfig\.json|eslint\.config\.mjs|playwright\.config\.ts)$'
           l1='^(docs/|\.ai/|public/assets/)|\.(md|css)$'
           any_l3=false; all_l1=true
           for f in "${files[@]}"; do
@@ -70,6 +71,7 @@ jobs:
           BRANCH: ${{ github.head_ref }}
           RISK: ${{ needs.classify.outputs.risk }}
           HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'contract-change') }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           list=$(mktemp)
           git diff --name-only -z "origin/$BASE_REF...HEAD" > "$list"   # fails the job on git errors
@@ -103,9 +105,9 @@ jobs:
             elif ! git merge-base --is-ancestor "$frozen" HEAD 2>/dev/null; then
               echo "::error::Frozen SHA $frozen from $card is not in this PR's history"
               status=1
-            elif ! git diff --quiet "$frozen" HEAD -- tests/acceptance; then
+            elif ! git diff --quiet "$frozen" "$HEAD_SHA" -- tests/acceptance; then   # the PR's head, not the merge commit that was checked out
               echo "::error::tests/acceptance/ changed after Frozen SHA $frozen"
-              git diff --stat "$frozen" HEAD -- tests/acceptance
+              git diff --stat "$frozen" "$HEAD_SHA" -- tests/acceptance
               status=1
             else
               echo "Frozen $frozen: tests/acceptance/ unchanged"

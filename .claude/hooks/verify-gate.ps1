@@ -6,6 +6,9 @@
 # After two blocks in a row it lets go and asks for a handoff (two-round rule). A hook timeout does not
 # count as a block, so only -Quick runs here.
 $ErrorActionPreference = 'Continue'
+# The event JSON is UTF-8 but the console code page may be Big5 (trial record 58): set the input encoding
+# before the first read, or Chinese paths and messages in the event turn into garbage and cwd breaks.
+[Console]::InputEncoding = [System.Text.UTF8Encoding]::new()
 $raw = [Console]::In.ReadToEnd()
 $evt = if ($raw) { $raw | ConvertFrom-Json } else { $null }
 $sid = if ($evt -and $evt.session_id) { $evt.session_id } else { 'unknown' }
