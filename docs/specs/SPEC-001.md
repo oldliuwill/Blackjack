@@ -1,6 +1,6 @@
 # SPEC-001：Blackjack 網頁遊戲 MVP
 
-版本：1.0 · 2026-10-15 · 作者：協調者（Claude Opus）· 狀態：定稿（Codex 審查兩輪；§10 第 1–3 點已由人確認）
+版本：1.1 · 2026-10-21 · 作者：協調者（Claude Opus）· 狀態：定稿（1.0：Codex 審查兩輪，§10 第 1–3 點已由人確認；1.1：流程改照 baseline v2.0，只改 §5 的目錄註解、§6.3、§6.4、§7、§8 與 §10 第 9 點，規則與 §9 不變）
 
 依據：
 
@@ -277,8 +277,8 @@ src/
 public/assets/      # 裝飾圖（L1，TASK-005）
 tests/
 ├─ unit/            # Builder 的單元測試（Vitest，*.test.ts）
-├─ support/         # 測試輔助，不含斷言；協調者寫，Codex 審
-├─ acceptance/      # 凍結的驗收測試（Vitest，*.test.ts）；Codex 寫
+├─ support/         # 測試輔助，不含斷言；協調者寫，驗收作者順便審
+├─ acceptance/      # 凍結的驗收測試（Vitest，*.test.ts）；驗收作者寫（§8.1）
 └─ e2e/             # Playwright 冒煙測試（*.spec.ts）
 ```
 
@@ -329,7 +329,7 @@ Node 24 LTS（`engines.node: ">=24 <25"`）、npm。`package.json` 一律寫精�
 - `classify`（ubuntu-latest）：只計算並輸出 `risk`，不做會失敗的檢查。變更觸及 §7 的 L3 路徑 → L3；全部檔案都在 L1 範圍 → L1；其他 → L2。
 - `contract`（ubuntu-latest）：
   - 相對於 `main`，變更觸及 `tests/acceptance/`、`docs/specs/`、`.ai/task-contracts/` 時，PR 必須有 `contract-change` 標籤。
-  - risk 為 L3 時：從分支名 `task/NNN` 找到 `.ai/task-contracts/TASK-NNN.md`，讀出 `Frozen` SHA（卡上寫法固定為 `Frozen：<SHA>`）。SHA 必須存在於歷史中，而且 `tests/acceptance/` 自該 SHA 起沒有變動。**這項檢查不能用標籤略過**：凍結後要改驗收測試，就連同卡上的 `Frozen` 一起更新，由 Code Owner 核准。
+  - risk 為 L3 時：從分支名 `task/NNN` 找到 `.ai/task-contracts/TASK-NNN.md`，讀出 `Frozen` SHA（卡上寫法固定為 `Frozen：<SHA>`）。SHA 必須存在於歷史中，而且 `tests/acceptance/` 從該 SHA 到 PR 的 head commit（`pull_request.head.sha`，不是 CI checkout 出來的 merge commit）沒有變動。**這項檢查不能用標籤略過**：凍結後要改驗收測試，就連同卡上的 `Frozen` 一起更新，由 Code Owner 核准。
 - `verify`（windows-latest，只依賴 `classify`，所以 `contract` 失敗時照樣執行）：setup-node 24 → `npm ci` → `npx playwright install chromium` → `pwsh ./scripts/verify.ps1 -Risk <classify 的結果>`。
 - `dependency-review`（ubuntu-latest）。
 - Action 版本：`actions/checkout@v7.0.1`、`actions/setup-node@v7.1.0`、`actions/dependency-review-action@v5.0.0`。
@@ -338,7 +338,7 @@ baseline A14 把契約檢查放在 classify 內，verify 又依賴 classify；�
 
 ### 6.4 Stop hook 與 trace
 
-`.claude/settings.json` 掛 Stop hook `verify-gate.ps1`：只在 `task/*` 分支跑 `verify.ps1 -Quick`，連續擋兩次後放行並要求交接；另附 `scripts/trace-summary.ps1`。這兩項順手加，不列入試行的成敗。[D1]
+`.claude/settings.json` 掛 Stop hook `verify-gate.ps1`：只在 `task/*` 分支跑 `verify.ps1 -Quick`，連續擋兩次後放行並要求交接；讀 stdin 之前把輸入編碼設成 UTF-8（事件 JSON 是 UTF-8，主控台字碼頁可能是 Big5）；另附 `scripts/trace-summary.ps1`。這兩項順手加，不列入試行的成敗。[D1]
 
 ### 6.5 TASK-001 合併後由人設定
 
@@ -350,34 +350,36 @@ baseline A14 把契約檢查放在 classify 內，verify 又依賴 classify；�
 
 | 等級 | 路徑 |
 | --- | --- |
-| L3 | `src/engine/**`、`package.json`、`package-lock.json`、`.github/**`、`scripts/verify.ps1`、`.claude/**`；以及會改變驗收含義或關卡範圍的檔案 [D34]：`tests/support/**`、`vite.config.ts`、`tsconfig.json`、`eslint.config.mjs`、`playwright.config.ts` |
+| L3 | `src/engine/**`、`package.json`、`package-lock.json`、`.github/**`、`scripts/**`、`.claude/**`、`AGENTS.md`、`CLAUDE.md`、`tests/acceptance/**`；以及會改變驗收含義或關卡範圍的檔案 [D34]：`tests/support/**`、`vite.config.ts`、`tsconfig.json`、`eslint.config.mjs`、`playwright.config.ts` |
 | L2 | `src/ui/**`、`src/main.ts`、`index.html`，以及其他未列出的檔案 |
-| L1 | 文件（`docs/**`、`.ai/**`、`*.md`）、`*.css`、`public/assets/**` |
+| L1 | 文件（`docs/**`、`.ai/**`、`*.md`）、`*.css`、`public/assets/**`；L3 路徑先判，所以 `AGENTS.md`、`CLAUDE.md` 與 `.claude/` 底下的 `.md` 不會落到 L1 |
 
 這份清單在 AGENTS.md、CI `classify`、CODEOWNERS 三處保持一致。路徑之外的升級條件：改動 §4 的公開 API 或型別一律 L3。
 
+`docs/specs/**` 與 `.ai/task-contracts/**` 不提高風險等級：每張卡的 PR 都帶著自己的卡，列進 L3 會讓 L2 卡的 PR 被判成 L3、因沒有 `Frozen` 而失敗。這兩處改由 `contract-change` 標籤（§6.3）與 CODEOWNERS 把關；規格或卡的修訂由規劃 session 寫，L3 的計畫先經 `spec-reviewer` 審，再隨任務分支的準備用 commit 或單獨的 plan PR 進 `main`；實作 commit 碰到卡或規格由審查者列 BLOCKING（§8.1）。（baseline v2.0 A19 把它們列進 L3，本專案不照做，原因如上。人確認：待確認）
+
 保護機制：
 
-- **CODEOWNERS**（Code Owner 為 repo 擁有者）：L3 路徑，加上 `/scripts/`、`/AGENTS.md`、`/CLAUDE.md`、`/tests/acceptance/`、`/docs/specs/`、`/.ai/task-contracts/`
+- **CODEOWNERS**（Code Owner 為 repo 擁有者）：L3 路徑，加上 `/docs/specs/`、`/.ai/task-contracts/`。審查者定義檔 `.claude/agents/` 在 `/.claude/` 底下，同樣受保護
 - **`.claude/settings.json` 的 deny**，對 repo 內每個 Claude session 生效：
   - `Edit(/tests/acceptance/**)`、`Edit(/AGENTS.md)`、`Edit(/CLAUDE.md)`、`Edit(/.claude/**)`、`Edit(/.github/**)`、`Edit(/scripts/**)`
   - `Read(.env)`、`Read(.env.*)`
   - `Bash(git push *)`、`Bash(git commit --no-verify *)` [D33]
   - `WebSearch`、`WebFetch`、`mcp__claude-in-chrome`、`mcp__Claude_Browser`
   - `disableBypassPermissionsMode: "disable"`
-- 規格與任務卡不放進 deny（協調者要寫），由 CODEOWNERS、`contract-change` 標籤與審查者對照 trace 把關。
+- 規格與任務卡不放進 deny（規劃 session 要寫），由 CODEOWNERS、`contract-change` 標籤與審查者（看 diff）把關。
 
 ## 8. 計畫與任務卡
 
-### 8.1 每張 L3 卡的流程
+### 8.1 每張卡的流程
 
-1. 協調者從 `main` 建 `task/NNN`，在 `tests/support/` 寫需要的輔助（不含斷言），由 Codex 審。
-2. Codex 在獨立 worktree 寫 `tests/acceptance/`，依 §9 的案例，`$noWeb`、effort high。協調者跑 `check-acceptance-diff.ps1`，Claude（唯讀子代理）反向審斷言，人抽查後凍結，SHA 寫進卡的 `Frozen`。
-3. 協調者在 `D:\ai\projects\Blackjack-wt\task-NNN` 從 `task/NNN` 建 worktree；人在那裡開實作者 session（Opus），貼上一行啟動提示。[D2]
-4. 實作到 `pwsh ./scripts/verify.ps1 -Risk L3` 通過，commit。協調者 push 並開 PR。[D33]
-5. 協調者開 PR 時請人加 `contract-change` 標籤（這張卡新增了驗收測試並更新了卡上的 `Frozen`），CI 隨標籤重跑 → Codex 審 diff（`$noWeb`、固定 base／head SHA）→ 修正最多兩輪 → 人核准 → merge。
+TASK-001–003 照 1.0 的流程（Codex 寫驗收與審查）。TASK-004 起照 baseline v2.0（純 Claude）§6，摘要如下；細節以 baseline 與卡為準。
 
-L2 卡：Sonnet 實作 → verify → Opus 唯讀子代理審（TASK-004 另交 Codex 審一次，比較兩邊）→ 人核准。L1 卡：直接實作 → `verify -Quick` → CI。
+1. 引擎等程式的 L3 卡：協調者從 `main` 建 `task/NNN` 與 worktree `D:\ai\projects\Blackjack-wt\task-NNN`，寫 `tests/support/`（不含斷言）→ Opus 驗收 session 依 §9 與 `acceptance-author` skill 寫 `tests/acceptance/`，跑 `check-acceptance-diff.ps1 -Base <撰寫前的 commit>` → Opus 唯讀子代理反向審（`reverse-reviewer`）→ 人抽查後凍結，SHA 寫進卡的 `Frozen` → Sonnet 實作者 session（effort xhigh）實作到 `pwsh ./scripts/verify.ps1 -Risk L3` 通過，commit，不 push [D2] → 協調者 push、開 PR、請人加 `contract-change` 標籤 [D33] → Opus 唯讀子代理審固定 base／head 的 diff（`diff-reviewer`；觸及數值或關卡時加 Fable 第二審）→ 修正最多兩輪 → 人核准（Approve 與合併分兩步）→ merge。
+2. Allowed Files 落在 §7 deny 內的 L3 卡（`.claude/**`、`.github/**`、`scripts/**`、`AGENTS.md`、`CLAUDE.md`）：實作者 session 寫不進去，比照 bootstrap 例外，由協調者從 repo 以外的協調目錄啟動的 session 實作。PR 帶著改過的卡或規格時，同樣要人加 `contract-change` 標籤。沒有新的驗收測試，`Frozen` 填最近一次凍結的 SHA（§8.3）；審查用 `diff-reviewer` 加 Fable 第二審，並做卡上列的負向測試；人逐項核對。
+3. L2 卡：Sonnet 實作者 session（effort 高）→ `verify.ps1 -Risk L2` → `diff-reviewer`（配對實驗另派 `diff-reviewer-sonnet`，兩邊互不看）→ 人核准。L1 卡：三行卡、`verify -Quick`、CI。
+
+審查者定義檔放在 `.claude/agents/`（TASK-006 起），協調 session 開場就加入 repo 的主 checkout 才會載入。
 
 ### 8.2 任務卡
 
@@ -388,9 +390,10 @@ L2 卡：Sonnet 實作 → verify → Opus 唯讀子代理審（TASK-004 另交 
 | TASK-003 | L3 | Opus | §4.4：牌局流程、動作、莊家、結算 | §9.3 S1–S16、B1–B18 | 002 |
 | TASK-004 | L2 | Sonnet | §3.8 介面與 localStorage；完整冒煙測試 | 卡上案例 | 003 |
 | TASK-005 | L1 | agy（Gemini Flash） | 牌背、桌面絨布、Logo 等裝飾圖 [D20] | 人看圖核准 | 001 |
-| TASK-006 | L3 | Opus | `.github/workflows/pages.yml`，Pages 部署需人核准 [D19] | 卡上案例 | 004 |
+| TASK-006 | L3 | 協調者（§8.1 第 2 點） | 治理檔改照 baseline v2.0：AGENTS.md、Stop hook、兩個 skill、審查者定義檔、CI 的 classify 與 contract | 卡上案例 | 004 |
+| TASK-007 | L3 | 協調者（§8.1 第 2 點） | `.github/workflows/pages.yml`，Pages 部署需人核准 [D19] | 卡上案例 | 006 |
 
-卡檔放在 `.ai/task-contracts/TASK-NNN.md`。TASK-005 可與 002–004 平行。
+卡檔放在 `.ai/task-contracts/TASK-NNN.md`。TASK-005 可與 002–004 平行。TASK-006 原本是 Pages 部署，1.1 拆成治理遷移（TASK-006，先做）與 Pages 部署（TASK-007）（Will／2026-10-21）。
 
 ### 8.3 bootstrap 例外 [D32]
 
@@ -401,12 +404,12 @@ TASK-001 會觸及 L3 路徑，但當時還沒有驗收測試，所以它的 PR 
 - `verify` 照樣執行：typecheck、lint、unit、build、e2e 五步都通過，最後只因 `required steps not run: acceptance` 失敗。
 - `dependency-review` 通過。
 
-這時 ruleset 還沒要求必要檢查，人確認結果與上面一致後核准合併，並記為試行發現。之後非引擎的 L3 卡（例如 TASK-006）的 `Frozen` 填最近一次凍結的驗收 SHA，CI 只核對它沒被改動。
+這時 ruleset 還沒要求必要檢查，人確認結果與上面一致後核准合併，並記為試行發現。之後非引擎的 L3 卡（例如 TASK-006、TASK-007）的 `Frozen` 填最近一次凍結的驗收 SHA，CI 只核對它沒被改動。
 
 ### 8.4 合併順序
 
 1. plan PR：`plan/spec-001` → `main`，內容為研究筆記、本 SPEC、任務卡。這時還沒有 CI，人審閱後核准。
-2. TASK-001 → 人依 §6.5 設定 ruleset → TASK-002 → TASK-003 → TASK-004 → TASK-006。TASK-005 在 TASK-001 之後任何時間都可以做。
+2. TASK-001 → 人依 §6.5 設定 ruleset → TASK-002 → TASK-003 → TASK-004 → TASK-006 → TASK-007。TASK-005 在 TASK-001 之後任何時間都可以做。
 
 ## 9. 驗收依據
 
@@ -499,6 +502,7 @@ C4 的 `handValue`：
 6. **假設**：七個套件版本各自可追溯到工具鏈研究，但整組能一起安裝與通過驗證尚未證實，由 TASK-001 的 AC1、AC2 關閉。
 7. **假設**：repo 為公開，可使用 ruleset、Code Owner 核准、dependency review、environment required reviewers；ruleset 已實際啟用。其餘功能在 §6.5 設定時確認。
 8. **已知限制**：TASK-001 的 PR 過不了 L3 關卡（§8.3）。
+9. **待補（1.1 不處理）**：§9 的缺口，包括加倍後 push 的返還額、同時違反下注格式與資金時的錯誤碼順序、settled 後 `summary` 的快照獨立，以及 storage 讀到超過安全整數的數字串（U7，TASK-004 審查兩邊都提，實作退回 1,000）。這些要新的驗收案例與人確認，另開 SPEC 修訂與卡，不併進治理卡。
 
 ## 計畫審查紀錄
 
@@ -507,3 +511,4 @@ C4 的 `handValue`：
 | 1 | Codex（`$noWeb`、effort medium、唯讀） | 草稿 1（commit `fb53683`） | BLOCKING 5、NON-BLOCKING 7、假設 3；全部有效，已修正為草稿 2。手算核對 S1–S16、C1–C5 與 B2–B9、B11–B14，預期值正確 |
 | 1 | Gemini Flash（agy） | 同上 | 未執行：agy 連 `googleapis.com` 的登入檢查被重設連線，兩次都在 5 秒內失敗 |
 | 2 | Codex（同上，只給 diff 與上輪 finding） | 草稿 2（commit `ca628eb`） | 上輪 12 項：11 項已解決，D34 待人確認；手算 B1、B10、B12、B14–B18 全部一致；新 NON-BLOCKING 2 項（B17 措辭、§8.2 的 AC 範圍），已修正為草稿 3 |
+| 1.1 | Fable 5.1（`spec-reviewer`，唯讀子代理） | 1.1 草稿與 TASK-006、TASK-007 兩張卡 | BLOCKING 1（TASK-006 A6-2 的負向測試分辨不出改前改後）、NON-BLOCKING 8、假設 6；全部在 commit 前處理，紀錄 `.ai/reviews/PLAN-006.r1.fable.md` |
