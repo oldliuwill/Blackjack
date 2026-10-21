@@ -1,7 +1,7 @@
 # TASK-007：GitHub Pages 部署
 
 Risk：L3（路徑：`.github/**`）
-Spec：docs/specs/SPEC-001.md@7d7fb6b09c003064d3ace76a34561a3a93bf3459 §6、§8.1 第 2 點、§8.3、§10 第 4 點
+Spec：docs/specs/SPEC-001.md@3f2c0fd303dff996e7bb630f59efb2bea18b6234 §6、§8.1 第 2 點、§8.3、§10 第 4 點
 實作：協調者 session（Sonnet，effort xhigh），比照 bootstrap 例外（SPEC §8.1 第 2 點）：`.github/**` 在 `.claude/settings.json` 的 deny 內，實作者 session 寫不進去
 
 Goal：`main` 有新 commit 時建置並部署到 GitHub Pages；部署 job 需要人在 `github-pages` environment 核准。[D19]

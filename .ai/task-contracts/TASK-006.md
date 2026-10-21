@@ -1,7 +1,7 @@
 # TASK-006：治理檔改照 baseline v2.0
 
 Risk：L3（路徑：`.claude/**`、`.github/**`、`AGENTS.md`；路徑之外的升級條件：關卡腳本與 CI）
-Spec：docs/specs/SPEC-001.md@7d7fb6b09c003064d3ace76a34561a3a93bf3459 §6.3、§6.4、§7、§8.1；baseline v2.0（`D:\ai\projects\claude_baseline\docs\AI 軟體開發規範 Baseline v2.0（純 Claude）.md`）A2、A9、A16、A19
+Spec：docs/specs/SPEC-001.md@3f2c0fd303dff996e7bb630f59efb2bea18b6234 §6.3、§6.4、§7、§8.1；baseline v2.0（`D:\ai\projects\claude_baseline\docs\AI 軟體開發規範 Baseline v2.0（純 Claude）.md`）A2、A9、A16、A19
 實作：協調者 session（Sonnet，effort xhigh），比照 bootstrap 例外（SPEC §8.1 第 2 點、baseline A11）：Allowed Files 都在 `.claude/settings.json` 的 deny 內，實作者 session 寫不進去
 
 Goal：把治理檔從 v1.2.2／Codex 版改成 v2.0（純 Claude）版，讓 TASK-007 起的卡照 v2.0 跑：AGENTS.md 與 SPEC 1.1 §7 一致；Stop hook 讀得到中文事件；驗收 skill 不再寫死 Codex 時期的做法；審查者定義檔進 repo、受 CODEOWNERS 保護；CI 的 L3 清單與 Frozen 核對照 SPEC 1.1 §6.3、§7。
