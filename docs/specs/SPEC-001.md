@@ -356,7 +356,7 @@ baseline A14 把契約檢查放在 classify 內，verify 又依賴 classify；�
 
 這份清單在 AGENTS.md、CI `classify`、CODEOWNERS 三處保持一致。路徑之外的升級條件：改動 §4 的公開 API 或型別一律 L3。
 
-`docs/specs/**` 與 `.ai/task-contracts/**` 不提高風險等級：每張卡的 PR 都帶著自己的卡，列進 L3 會讓 L2 卡的 PR 被判成 L3、因沒有 `Frozen` 而失敗。這兩處改由 `contract-change` 標籤（§6.3）與 CODEOWNERS 把關；規格或卡的修訂由規劃 session 寫，L3 的計畫先經 `spec-reviewer` 審，再隨任務分支的準備用 commit 或單獨的 plan PR 進 `main`；實作 commit 碰到卡或規格由審查者列 BLOCKING（§8.1）。（baseline v2.0 A19 把它們列進 L3，本專案不照做，原因如上。人確認：待確認）
+`docs/specs/**` 與 `.ai/task-contracts/**` 不提高風險等級：每張卡的 PR 都帶著自己的卡，列進 L3 會讓 L2 卡的 PR 被判成 L3、因沒有 `Frozen` 而失敗。這兩處改由 `contract-change` 標籤（§6.3）與 CODEOWNERS 把關；規格或卡的修訂由規劃 session 寫，L3 的計畫先經 `spec-reviewer` 審，再隨任務分支的準備用 commit 或單獨的 plan PR 進 `main`；實作 commit 碰到卡或規格由審查者列 BLOCKING（§8.1）。（baseline v2.0 A19 把它們列進 L3，本專案不照做，原因如上。人確認：Will／2026-10-21，連同 TASK-006 的計畫一起核准）
 
 保護機制：
 
