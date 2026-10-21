@@ -229,3 +229,18 @@ cleanup: work exists = False
 
 1. 改後的 hook 在 Big5 字碼頁下，`git rev-parse --show-toplevel` 的輸出（UTF-8）被當成 Big5 解，含中文的根目錄路徑變亂碼，`Set-Location` 報錯（非終止），hook 繼續在 `cwd`（正確）執行，所以上面的標記檔仍然產生；若 `cwd` 是 repo 的子資料夾，就會留在子資料夾裡跑 `./scripts/verify.ps1` 而找不到腳本。修法是同時設 `[Console]::OutputEncoding`，這是卡的非目標（卡只要求 `InputEncoding`），列為後續。
 2. `(git rev-parse --abbrev-ref HEAD 2>$null) -notmatch '^task/'` 在 git 沒有輸出（不在 repo）時，左運算元是空集合，`-notmatch` 回空陣列（視為假），所以 hook 沒有 `exit 0`，而是繼續往下找 `./scripts/verify.ps1`、失敗、`exit 2`。v2.0 的 A9 範本是同一個寫法。實際使用的 session 幾乎都在 repo 裡，影響小。
+
+## 補充：測試用檔案與 head 的對應（審查後補，2026-10-21）
+
+審查者指出紀錄沒有說明測的副本等於 head 的檔案。下面是 `git hash-object`（測試用副本）與 `git rev-parse <commit>:<path>`（head `4aadac1` 與 `main`）的比對，全部相同：
+
+```text
+hook  head 4aadac1 = 3052317e628d892240c1319e09d924be4b4fa34c   測試用 hook.new.ps1 = 3052317e628d892240c1319e09d924be4b4fa34c
+hook  main         = ec874770f03d8905ac940e9cc8e1e6c8556b1a48   測試用 hook.old.ps1 = ec874770f03d8905ac940e9cc8e1e6c8556b1a48
+yml   head 4aadac1 = 5631c4497279aeb4acb94f1009683f8d8bbd8f61   測試用 verify.new.yml = 5631c4497279aeb4acb94f1009683f8d8bbd8f61
+yml   main         = 7fba7e8390735bfdf62789de2f767c896af62d88   測試用 verify.old.yml = 7fba7e8390735bfdf62789de2f767c896af62d88
+```
+
+A6-4（五個定義檔與 `claude_baseline\.claude\agents\` 同名檔，`tr -d '\r'` 後用 `cmp` 逐位元組比對；`git show 4aadac1:.claude/agents/<name>.md` 對 `D:\ai\projects\claude_baseline\.claude\agents\<name>.md`）：`diff-reviewer`、`diff-reviewer-sonnet`、`reverse-reviewer`、`spec-reviewer`、`spec-calculator` 五個全部相同；`.claude/skills/` 底下只剩 `acceptance-author`。
+
+CI 上的 A6-6 實證（PR #6，head `964e90e`）：contract job 的環境 `HEAD_SHA: 964e90e6392fe2258e2088b425f836b49b5b4490`（解析到 PR head，不是 merge commit），輸出 `Frozen d95af4fcf4c75c4b2ab32f1c9e354056d3897794: tests/acceptance/ unchanged`；缺 `contract-change` 標籤的錯誤是預期的失敗（規劃 commit 改了 `docs/specs/` 與 `.ai/task-contracts/`）。
