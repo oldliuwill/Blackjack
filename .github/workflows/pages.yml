@@ -1,0 +1,51 @@
+# SPEC-001 §8.1 point 2 (TASK-007): build on every push to main, deploy to GitHub Pages after a human
+# approves the github-pages environment (required reviewers; deployment branches: main only) [D19].
+# No LLM runs here and no secrets are used. The full verification already passed in the PR before the merge.
+name: pages
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  # A newer push supersedes an older run that is still waiting for approval, so only the latest build is offered.
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # ubuntu-latest is the path the official Pages examples use; verify.yml stays on windows-latest [D18].
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      # vite.config.ts sets base to /Blackjack/ (SPEC-001 §10.4), the sub-path Pages serves the site from.
+      - run: npm run build
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The environment's required reviewers hold this job until a human approves it.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5.0.1
