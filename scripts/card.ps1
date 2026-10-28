@@ -16,6 +16,7 @@ param(
   [string]$Repo = 'oldliuwill/Blackjack'
 )
 $ErrorActionPreference = 'Stop'
+$ToolsGiven = $PSBoundParameters.ContainsKey('Tools')   # inside a function $PSBoundParameters is the function's own
 try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new() } catch { }
 
 $Utf8 = [System.Text.UTF8Encoding]::new($false)
@@ -47,7 +48,7 @@ function Invoke-Native([string]$Exe, [string[]]$ArgList, [switch]$Soft) {
   $out
 }
 function Git-In([string]$Dir, [string[]]$GitArgs, [switch]$Soft) { Invoke-Native 'git' (@('-C', $Dir) + $GitArgs) -Soft:$Soft }
-function Gh([string[]]$GhArgs, [switch]$Soft) { Invoke-Native 'gh' $GhArgs -Soft:$Soft }
+function Invoke-Gh([string[]]$GhArgs, [switch]$Soft) { Invoke-Native 'gh' $GhArgs -Soft:$Soft }
 
 # --- main checkout: from the script's own location, never from the caller's directory ---
 $Self = Split-Path -Parent $PSScriptRoot
@@ -172,7 +173,7 @@ function Invoke-Start {
   if (Test-Path -LiteralPath $wtCard -PathType Leaf) {
     $lines = [System.IO.File]::ReadAllLines($wtCard, $Utf8)
     Write-Host "卡：$wtCard"
-    foreach ($name in 'Risk') { $f = Card-Field $lines $name; Write-Host ($(if ($f) { $f } else { "$name：（卡上沒有）" })) }
+    $f = Card-Field $lines 'Risk'; Write-Host ($(if ($f) { $f } else { 'Risk：（卡上沒有）' }))
     $allowed = @(Card-Allowed $lines)
     if ($allowed.Count -gt 0) { $allowed | ForEach-Object { Write-Host $_ } } else { Write-Host 'Allowed Files：（卡上沒有）' }
     $f = Card-Field $lines 'Frozen'; Write-Host ($(if ($f) { $f } else { 'Frozen：（卡上沒有）' }))
@@ -285,7 +286,7 @@ function Invoke-Pr {
   $title = "TASK-${Card}：$($Matches[1].Trim())"
 
   [void](Git-In $wt @('push', '-u', 'origin', $branch))
-  $existing = Gh @('pr', 'list', '-R', $Repo, '--head', $branch, '--state', 'all', '--json', 'url,state', '--jq', '.[] | "\(.url) \(.state)"')
+  $existing = Invoke-Gh @('pr', 'list', '-R', $Repo, '--head', $branch, '--state', 'all', '--json', 'url,state', '--jq', '.[] | "\(.url) \(.state)"')
   if ($existing.Trim()) {
     $line = ($existing -split "`n" | Select-Object -First 1).Trim()
     Write-Host "PR 已存在，不再建立：$line"
@@ -315,12 +316,12 @@ function Invoke-Pr {
   $bodyFile = Join-Path ([System.IO.Path]::GetTempPath()) "card-$Card-$([guid]::NewGuid().ToString('N')).md"
   try {
     [System.IO.File]::WriteAllText($bodyFile, ($body -join "`n") + "`n", $Utf8)
-    $url = (Gh @('pr', 'create', '-R', $Repo, '--base', 'main', '--head', $branch, '--title', $title, '--body-file', $bodyFile) -split "`n" | Where-Object { $_.Trim() } | Select-Object -Last 1).Trim()
+    $url = (Invoke-Gh @('pr', 'create', '-R', $Repo, '--base', 'main', '--head', $branch, '--title', $title, '--body-file', $bodyFile) -split "`n" | Where-Object { $_.Trim() } | Select-Object -Last 1).Trim()
   }
   finally { Remove-Item -LiteralPath $bodyFile -Force -ErrorAction SilentlyContinue }
 
   if ($needLabel) {
-    $l = Gh @('pr', 'edit', $url, '-R', $Repo, '--add-label', 'contract-change') -Soft
+    $l = Invoke-Gh @('pr', 'edit', $url, '-R', $Repo, '--add-label', 'contract-change') -Soft
     if ($l.Code -ne 0) { Write-Host "注意：加 contract-change 標籤失敗，請人加：$(One-Line $l.Err)" } else { Write-Host '已加 contract-change 標籤' }
   }
   Write-Host $url
@@ -331,31 +332,34 @@ function Invoke-Status {
   [void](Resolve-Main)
   $owner, $name = $Repo -split '/', 2
   $branch = "task/$Card"
-  $list = Gh @('api', "repos/$Repo/pulls?head=${owner}:$branch&state=all&per_page=5") | ConvertFrom-Json
+  $list = Invoke-Gh @('api', "repos/$Repo/pulls?head=${owner}:$branch&state=all&per_page=5") | ConvertFrom-Json
   $list = @($list)
   if ($list.Count -eq 0) { Write-Host "分支 $branch 沒有 PR"; Write-Host 'NO-PR'; return }
   $num = [int]$list[0].number
-  $query = 'query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){url number state merged mergedAt headRefOid reviewDecision mergeStateStatus statusCheckRollup{contexts(first:100){nodes{__typename ... on CheckRun{name conclusion status} ... on StatusContext{context state}}}} reviews(first:100){nodes{state submittedAt author{login} commit{oid}}}}}}'
-  $pr = (Gh @('api', 'graphql', '-f', "query=$query", '-F', "owner=$owner", '-F', "name=$name", '-F', "number=$num") | ConvertFrom-Json).data.repository.pullRequest
+  $query = 'query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){url number state merged mergedAt headRefOid reviewDecision mergeStateStatus statusCheckRollup{contexts(first:100){nodes{__typename ... on CheckRun{name conclusion status startedAt} ... on StatusContext{context state createdAt}}}} reviews(first:100){nodes{state submittedAt author{login} commit{oid}}}}}}'
+  $pr = (Invoke-Gh @('api', 'graphql', '-f', "query=$query", '-F', "owner=$owner", '-F', "name=$name", '-F', "number=$num") | ConvertFrom-Json).data.repository.pullRequest
 
-  $checks = @()
+  # the rollup keeps every run of a check (a label change re-runs the workflow): the latest run of each name counts
+  $runs = @()
   if ($pr.statusCheckRollup) {
     foreach ($n in @($pr.statusCheckRollup.contexts.nodes)) {
-      if ($n.__typename -eq 'CheckRun') { $checks += [pscustomobject]@{ Name = $n.name; Result = $(if ($n.conclusion) { "$($n.conclusion)" } else { "$($n.status)" }) } }
-      else { $checks += [pscustomobject]@{ Name = $n.context; Result = "$($n.state)" } }
+      if ($n.__typename -eq 'CheckRun') { $runs += [pscustomobject]@{ Name = $n.name; Result = $(if ($n.conclusion) { "$($n.conclusion)" } else { "$($n.status)" }); At = [datetime]$n.startedAt } }
+      else { $runs += [pscustomobject]@{ Name = $n.context; Result = "$($n.state)"; At = [datetime]$n.createdAt } }
     }
   }
+  $checks = @($runs | Group-Object Name | ForEach-Object { $_.Group | Sort-Object At | Select-Object -Last 1 })
   $reviews = @($pr.reviews.nodes)
+  $iso = { param($t) ([datetime]$t).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') }
 
   Write-Host "PR #$($pr.number)：$($pr.url)"
   Write-Host "head：$($pr.headRefOid)"
   Write-Host "state：$($pr.state)"
   Write-Host "reviewDecision：$($pr.reviewDecision)"
-  foreach ($r in $reviews) { Write-Host "  review：$($r.author.login) $($r.state) @ $("$($r.commit.oid)".Substring(0, 7)) $($r.submittedAt)" }
+  foreach ($r in $reviews) { Write-Host "  review：$($r.author.login) $($r.state) @ $("$($r.commit.oid)".Substring(0, 7)) $(& $iso $r.submittedAt)" }
   Write-Host 'checks：'
   foreach ($c in $checks) { Write-Host "  $($c.Name)：$($c.Result)" }
   Write-Host "mergeStateStatus：$($pr.mergeStateStatus)"
-  Write-Host "merged：$(if ($pr.merged) { "是（$($pr.mergedAt)）" } else { '否' })"
+  Write-Host "merged：$(if ($pr.merged) { "是（$(& $iso $pr.mergedAt)）" } else { '否' })"
 
   if ($pr.merged) {
     # approved = an APPROVED review on the final head, submitted before the merge (admin bypass record, trial log)
@@ -381,7 +385,7 @@ function Invoke-Close {
   $archive = if ($Archive) { Normalize-Path $Archive } else { Join-Path (Split-Path -Parent $main) "$(Split-Path -Leaf $main)-wt\_archive\task-$Card" }
   if ((Test-Path -LiteralPath $archive) -and @(Get-ChildItem -LiteralPath $archive -Force).Count -gt 0) { throw "-Archive 已存在且非空，不覆寫：$archive" }
   $wantUsage = [bool]$Since
-  if ($PSBoundParameters.ContainsKey('Tools') -and -not (Test-Path -LiteralPath $Tools -PathType Container)) { throw "-Tools 指到不存在的目錄：$Tools" }
+  if ($ToolsGiven -and -not (Test-Path -LiteralPath $Tools -PathType Container)) { throw "-Tools 指到不存在的目錄：$Tools" }
   $usageJs = Join-Path $Tools 'all-sessions-usage.js'
   if ($wantUsage -and -not (Test-Path -LiteralPath $Tools -PathType Container)) { $wantUsage = $false; Write-Host "注意：$Tools 不存在，略過用量" }
   elseif ($wantUsage -and -not (Test-Path -LiteralPath $usageJs -PathType Leaf)) { throw "找不到 $usageJs" }
@@ -415,7 +419,7 @@ function Invoke-Close {
   if (-not (Test-Path -LiteralPath $handoff -PathType Leaf)) {
     $head = (Git-In $wt @('rev-parse', 'HEAD')).Trim()
     $baseSha = (Git-In $wt @('merge-base', 'main', 'HEAD')).Trim()
-    $prUrl = Gh @('pr', 'list', '-R', $Repo, '--head', "task/$Card", '--state', 'all', '--json', 'url', '--jq', '.[0].url') -Soft
+    $prUrl = Invoke-Gh @('pr', 'list', '-R', $Repo, '--head', "task/$Card", '--state', 'all', '--json', 'url', '--jq', '.[0].url') -Soft
     $prText = if ($prUrl.Code -eq 0 -and $prUrl.Out.Trim()) { $prUrl.Out.Trim() } else { '（未開）' }
     $skeleton = "# TASK-$Card 狀態`n`n## Base`n$baseSha`n`n## Head`n$head`n`n## PR`n$prText`n`n## 用量`n"
     [System.IO.File]::WriteAllText($handoff, $skeleton, $Utf8)
