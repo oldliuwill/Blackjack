@@ -396,7 +396,27 @@ NO-PR
 
 ## A8-3：pr
 
-（待本卡的 PR 建立後補：第一次建 PR、第二次只印 URL、`gh pr list --head task/008` 仍 1 筆、`contract-change` 標籤判定。）
+本卡自己的 PR：https://github.com/oldliuwill/Blackjack/pull/8 （從 `claude_baseline` 啟動的 session 跑，不受 Blackjack 的 deny 約束）。
+
+```	ext
+$ pwsh -NoProfile -File scripts/card.ps1 pr -Card 008 -Worktree D:\ai\projects\Blackjack-wt\task-008      （第一次）
+已加 contract-change 標籤
+https://github.com/oldliuwill/Blackjack/pull/8
+[exit 0]
+$ pwsh -NoProfile -File scripts/card.ps1 pr -Card 008 -Worktree D:\ai\projects\Blackjack-wt\task-008      （第二次）
+https://github.com/oldliuwill/Blackjack/pull/8
+[exit 0]
+$ gh pr list -R oldliuwill/Blackjack --head task/008 --state all --json number --jq length
+1
+$ gh pr view 8 --json labels --jq '[.labels[].name]'
+["contract-change"]
+```
+
+- 標籤判定：本卡對 `origin/main` 的 diff 含 `.ai/task-contracts/TASK-008.md`，符合從 `verify.yml` 的 contract job 讀出的規則 `^(tests/acceptance/|docs/specs/|\.ai/task-contracts/)`，腳本自己加了標籤（agent 帳號有加標籤的權限）；CI 的 `contract` 在 PR head `875dff4` 是 SUCCESS。
+- classify 判 L3：PR 的檔案清單（`gh api pulls/8/files`）含 `scripts/card.ps1`，符合 `verify.yml` 的 `l3` 規則（用該行 regex 在本機比對，結果 L3）；classify 的 job 日誌 API 讀不到（404），所以不是讀 CI 輸出。
+- `status -Card 008`（PR 剛開、檢查跑到一半）：`WAIT: reviewDecision 是 REVIEW_REQUIRED，不是 APPROVED；檢查未全過：Analyze (actions)=IN_PROGRESS、Analyze (javascript-typescript)=IN_PROGRESS、verify=IN_PROGRESS；mergeStateStatus 是 BLOCKED，不是 CLEAN`。人 Approve、檢查全過後應變 `READY`，合併後 `MERGED`。
+- push 被 deny 擋下的情形：本 session 不受約束，未測。
+- 已知小問題：PR 本文的「審查紀錄」列出磁碟上所有 `TASK-008*.md`，包含沒有 commit 的 `.prompt.md`。
 
 ## A8-7：verify
 
