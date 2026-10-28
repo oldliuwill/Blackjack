@@ -286,10 +286,9 @@ function Invoke-Pr {
   $title = "TASK-${Card}：$($Matches[1].Trim())"
 
   [void](Git-In $wt @('push', '-u', 'origin', $branch))
-  $existing = Invoke-Gh @('pr', 'list', '-R', $Repo, '--head', $branch, '--state', 'all', '--json', 'url,state', '--jq', '.[] | "\(.url) \(.state)"')
-  if ($existing.Trim()) {
-    $line = ($existing -split "`n" | Select-Object -First 1).Trim()
-    Write-Host "PR 已存在，不再建立：$line"
+  $existing = @(Invoke-Gh @('pr', 'list', '-R', $Repo, '--head', $branch, '--state', 'all', '--json', 'url,state') | ConvertFrom-Json)
+  if ($existing.Count -gt 0) {
+    Write-Host $existing[0].url   # already there: print the URL only (state is in `card.ps1 status`)
     return
   }
 
@@ -405,7 +404,9 @@ function Invoke-Close {
     if (Test-Path -LiteralPath $log -PathType Leaf) { Copy-Item -LiteralPath $log -Destination (Join-Path $archive 'verify.log') } else { Write-Host '注意：worktree 沒有 .ai/metrics/verify.log' }
     $trace = Join-Path $wt '.ai\trace'
     if ((Test-Path -LiteralPath $trace -PathType Container) -and @(Get-ChildItem -LiteralPath $trace -Force).Count -gt 0) {
-      Copy-Item -Path (Join-Path $trace '*') -Destination (Join-Path $archive 'trace') -Recurse -Force
+      $traceOut = Join-Path $archive 'trace'
+      New-Item -ItemType Directory -Force -Path $traceOut | Out-Null   # without it a single file would be copied as 'trace'
+      Copy-Item -Path (Join-Path $trace '*') -Destination $traceOut -Recurse -Force
     }
     else { Write-Host '注意：worktree 沒有 .ai/trace 內容' }
   }
